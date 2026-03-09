@@ -3,51 +3,36 @@ import datetime
 
 st.set_page_config(page_title="Выход в Ноль", layout="wide")
 
-# ГЛУБОКИЙ APPLE BLACK ДИЗАЙН (ЧИСТЫЙ PYTHON)
+# ЖЕСТКИЙ ФИКС ДЛЯ iPAD/SAFARI (Абсолютная темнота)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
     html, body, [class*="stApp"] { background-color: #000000 !important; color: #ffffff !important; font-family: 'Inter', sans-serif; }
-
     header, footer {visibility: hidden;}
 
-    /* Поля ввода: полное слияние с фоном */
-    div[data-baseweb="input"], div[data-baseweb="select"] > div {
-        background-color: #080808 !important; border: 1px solid #1a1a1a !important; border-radius: 14px !important;
+    /* Жесткое подавление белых стилей Apple/iOS */
+    input, select, textarea, div[data-baseweb="input"], div[data-baseweb="select"] > div {
+        -webkit-appearance: none !important;
+        background-color: #0a0a0a !important;
+        border: 1px solid #222 !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
     }
-    input { color: #ffffff !important; font-size: 16px !important; }
-
-    /* Конверты с мягким свечением и анимацией */
-    .apple-card {
-        background: rgba(25, 25, 25, 0.4); backdrop-filter: blur(10px);
-        border-radius: 24px; padding: 22px; text-align: center;
-        border-top: 3px solid var(--status); margin-bottom: 10px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .apple-card:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,0,0,0.8); }
     
-    .card-title { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
-    .card-val { font-size: 32px; font-weight: 300; color: #fff; margin: 2px 0; }
-    .card-pct { font-size: 11px; color: var(--status); font-weight: 600; letter-spacing: 0.5px; }
-
     /* Кнопка записи */
     .stButton>button {
-        background: #0a0a0a !important; color: #30d158 !important;
-        border: 1px solid rgba(48, 209, 88, 0.2) !important; border-radius: 14px !important;
-        height: 48px; width: 100%; transition: 0.3s; font-weight: 500; font-size: 14px !important;
+        -webkit-appearance: none !important;
+        background-color: #111 !important; color: #30d158 !important;
+        border: 1px solid rgba(48, 209, 88, 0.3) !important; border-radius: 12px !important;
+        height: 48px; width: 100%; font-weight: 500;
     }
-    .stButton>button:hover { border-color: #30d158 !important; background: rgba(48, 209, 88, 0.05) !important; }
 
-    .fixed-box { background: #050505; border-radius: 24px; padding: 25px; border: 1px solid #111; }
-    .fixed-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #0a0a0a; font-size: 13px; color: #444; }
-    
-    /* Скрываем рамки кнопок для названий конвертов */
-    button[title="History"] { background: transparent !important; border: none !important; color: #555 !important; }
+    .fixed-box { background: #050505; border-radius: 20px; padding: 25px; border: 1px solid #111; }
+    .fixed-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #0a0a0a; font-size: 13px; color: #555; }
     </style>
     """, unsafe_allow_html=True)
 
-# ЛОГИКА И ДАННЫЕ
+# ДАННЫЕ
 if 'db' not in st.session_state:
     st.session_state.db = {
         "income": 18500,
@@ -65,10 +50,9 @@ if 'db' not in st.session_state:
 
 now = datetime.datetime.now()
 day_of_month = now.day
-days_in_month = 30 
-month_progress = day_of_month / days_in_month
+month_progress = day_of_month / 30.0
 
-st.markdown(f'<div style="text-align:center; padding-top:10px; font-size:18px; font-weight:400; letter-spacing:4px; color:#555;">{now.strftime("%B %Y").upper()}</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align:center; padding-top:10px; font-size:16px; font-weight:400; letter-spacing:4px; color:#666;">{now.strftime("%B %Y").upper()}</div>', unsafe_allow_html=True)
 
 main_c, side_c = st.columns([3.5, 1])
 
@@ -80,16 +64,16 @@ with main_c:
     
     st.markdown(f"""
         <div style="display:flex; justify-content:center; padding: 30px 0;">
-            <div style="width:170px; height:170px; border-radius:50%; background:radial-gradient(closest-side, black 88%, transparent 89% 100%), conic-gradient(#30d158 {pct}%, #111 0); display:flex; align-items:center; justify-content:center; border: 1px solid #1a1a1a;">
+            <div style="width:160px; height:160px; border-radius:50%; background:radial-gradient(closest-side, black 88%, transparent 89% 100%), conic-gradient(#30d158 {pct}%, #111 0); display:flex; align-items:center; justify-content:center;">
                 <div style="text-align:center;">
-                    <span style="font-size:36px; font-weight:300;">{int(total_left)} ₪</span><br>
+                    <span style="font-size:34px; font-weight:300;">{int(total_left)} ₪</span><br>
                     <span style="font-size:10px;color:#30d158;opacity:0.6;letter-spacing:2px;">ОСТАТОК</span>
                 </div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    # СЕТКА КОНВЕРТОВ (Умный прогноз включен)
+    # НЕПРОБИВАЕМЫЕ КАРТОЧКИ КОНВЕРТОВ (Без кнопок, только верстка)
     envs = list(st.session_state.db['envs'].items())
     for i in range(0, 8, 4):
         cols = st.columns(4)
@@ -100,43 +84,42 @@ with main_c:
                     name, d = envs[idx]
                     money_left_pct = d['b'] / d['l'] if d['l'] > 0 else 0
                     
-                    # Умный прогноз: подсвечиваем красным, если траты идут слишком быстро
                     is_warning = money_left_pct < (1 - month_progress)
                     color = "#ff453a" if is_warning else ("#30d158" if money_left_pct > 0.3 else "#ff9f0a")
+                    history_text = " | ".join(d["h"][:2]) if d["h"] else "Трат пока нет"
                     
-                    if st.button(name.upper(), key=f"btn_{name}", help="Нажми, чтобы увидеть историю"):
-                        st.session_state.active = name if st.session_state.get('active') != name else None
-                        
-                    st.markdown(f"""
-                        <div class="apple-card" style="--status:{color}">
-                            <div class="card-val">{int(d["b"])}</div>
-                            <div class="card-pct">{int(money_left_pct*100)}% от {int(d["l"])}</div>
+                    # Рисуем карточку единым куском кода, чтобы iOS не мог ее сломать
+                    html_card = f"""
+                    <div style="background-color: #0c0c0e; border-radius: 20px; padding: 20px; border-top: 2px solid {color}; margin-bottom: 15px; text-align: center;">
+                        <div style="color: #666; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;">{name}</div>
+                        <div style="color: #fff; font-size: 30px; font-weight: 300;">{int(d['b'])} ₪</div>
+                        <div style="color: {color}; font-size: 10px; font-weight: 600; margin-top: 4px;">{int(money_left_pct*100)}% от {int(d['l'])}</div>
+                        <div style="margin-top: 15px; border-top: 1px solid #1a1a1a; padding-top: 10px; color: #444; font-size: 10px;">
+                            {history_text}
                         </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if st.session_state.get('active') == name:
-                        st.markdown(f'<div style="font-size:11px; color:#666; padding-top:8px; text-align:center;">{" | ".join(d["h"][:2]) if d["h"] else "Пока нет трат"}</div>', unsafe_allow_html=True)
+                    </div>
+                    """
+                    st.markdown(html_card, unsafe_allow_html=True)
                 
                 elif idx == 7:
                     days_to_go = 31 - now.day
-                    st.markdown(f"""
-                        <div style="margin-top:42px;">
-                            <div class="apple-card" style="--status:#222; opacity:0.4;">
-                                <div class="card-val" style="color:#666;">{days_to_go}</div>
-                                <div style="font-size:10px; color:#444; margin-top:5px; letter-spacing:1px;">ДНЕЙ ДО 1-ГО</div>
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    html_card_days = f"""
+                    <div style="background-color: transparent; border-radius: 20px; padding: 20px; margin-bottom: 15px; text-align: center; border: 1px dashed #222;">
+                        <div style="color: #444; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;">Дней до 1-го</div>
+                        <div style="color: #666; font-size: 30px; font-weight: 300;">{days_to_go}</div>
+                    </div>
+                    """
+                    st.markdown(html_card_days, unsafe_allow_html=True)
 
 with side_c:
     st.markdown('<div class="fixed-box">', unsafe_allow_html=True)
     st.write("🔒 **ФИКСИРОВАНО**")
     for n, v in st.session_state.db['fixed'].items():
         st.markdown(f'<div class="fixed-row"><span>{n}</span><span>{v} ₪</span></div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="text-align:center; margin-top:40px;"><div style="color:#ff3b30; font-size:12px; letter-spacing:2px;">{now.strftime("%B").upper()}</div><div style="font-size:56px; font-weight:200;">{now.day}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center; margin-top:40px;"><div style="color:#ff3b30; font-size:12px; letter-spacing:2px;">{now.strftime("%B").upper()}</div><div style="font-size:56px; font-weight:200; color:#fff;">{now.day}</div></div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ПАНЕЛЬ ВВОДА (Максимально чистая)
+# ПАНЕЛЬ ВВОДА
 st.write("---")
 with st.form("input_form", clear_on_submit=True):
     c1, c2, c3 = st.columns([2, 1, 1])
@@ -146,10 +129,9 @@ with st.form("input_form", clear_on_submit=True):
         if st.form_submit_button("ВНЕСТИ ТРАТУ"):
             if val > 0:
                 st.session_state.db['envs'][cat]['b'] -= val
-                st.session_state.db['envs'][cat]['h'].insert(0, f"-{val}")
+                st.session_state.db['envs'][cat]['h'].insert(0, f"-{val}₪")
                 st.rerun()
 
-# НАСТРОЙКИ СПРЯТАНЫ ВНИЗУ
 with st.expander("⚙️ НАСТРОЙКИ СУММ"):
     for k in st.session_state.db['fixed']:
         st.session_state.db['fixed'][k] = st.number_input(f"{k}", value=st.session_state.db['fixed'][k], key=f"set_{k}")
