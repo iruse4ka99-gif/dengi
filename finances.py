@@ -1,59 +1,91 @@
-import streamlit as st
-import pandas as pd
-import os
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Семейный Бюджет: Выход в Ноль</title>
+    <style>
+        body { background-color: #121212; color: white; font-family: sans-serif; padding: 20px; }
+        .header { border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+        .stats { color: #aaa; font-size: 0.9em; }
+        .total-box { background: #1e3a2f; color: #4caf50; padding: 15px; border-radius: 10px; display: inline-block; margin-top: 10px; }
+        
+        .envelopes-grid { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
+        .envelope { background: #1e1e1e; padding: 15px; border-radius: 12px; width: 160px; text-align: center; }
+        
+        /* Цвета индикаторов под конвертами */
+        .bar { height: 4px; width: 100%; margin-top: 10px; border-radius: 2px; }
+        .bg-green { background-color: #2196f3; } /* Синий как на фото изначально */
+        .bg-orange { background-color: #ff9800; }
+        .bg-red { background-color: #f44336; }
 
-# ДАННЫЕ ИЗ ВАШЕЙ ТАБЛИЦЫ
-SALARY = 18000
-FIXED_COSTS = 10990
-STOCK_MARKET = 500 
-TOTAL_FIXED = FIXED_COSTS + STOCK_MARKET
+        .ai-input { margin-top: 40px; background: #1e1e1e; padding: 20px; border-radius: 15px; }
+        input { width: 100%; background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; }
+    </style>
+</head>
+<body>
 
-# ВАШИ КОНВЕРТЫ ДЛЯ ВЫХОДА В НОЛЬ
-ENVELOPE_PLAN = [
-    {"Название": "🛒 Продукты", "План": 3100},
-    {"Название": "📚 Доп. уроки детей", "План": 1850},
-    {"Название": "🚗 Машина (бензин)", "План": 700},
-    {"Название": "👶 Памперсы/Уход", "План": 450},
-    {"Название": "🆘 Разное/Запас", "План": 410}
-]
+<div class="header">
+    <h1>⚖️ Семейный Бюджет: Выход в Ноль</h1>
+    <div class="stats">
+        Доход: 18000 ₪ | Фикс. платежи: 10990 ₪ | Биржа: 500 ₪
+    </div>
+    <div class="total-box">Доступно на месяц: <span id="main-total">6510</span> ₪</div>
+</div>
 
-st.set_page_config(page_title="Наш Бюджет 0:00", layout="wide")
-st.title("⚖️ Семейный Бюджет: Выход в Ноль")
+<div class="envelopes-grid" id="grid">
+    </div>
 
-# Файл для хранения ваших трат
-if not os.path.exists("envelopes.csv"):
-    df = pd.DataFrame(ENVELOPE_PLAN)
-    df["Остаток"] = df["План"]
-    df.to_csv("envelopes.csv", index=False)
+<div class="ai-input">
+    <p>Напиши расход (например: <b>продукты 150</b>)</p>
+    <input type="text" id="ai-field" placeholder="Введите название и сумму..." onkeypress="runAI(event)">
+</div>
 
-env_df = pd.read_csv("envelopes.csv")
+<script>
+    // Твои конверты из приложения
+    let data = [
+        { id: 'prod', name: "Продукты", balance: 250, limit: 2000 },
+        { id: 'urok', name: "Доп. уроки", balance: 1850, limit: 2500 },
+        { id: 'car', name: "Машина", balance: 700, limit: 1500 },
+        { id: 'pamp', name: "Памперсы", balance: 450, limit: 600 },
+        { id: 'razn', name: "Разное", balance: 380, limit: 1000 }
+    ];
 
-st.sidebar.header("📊 Общая картина")
-st.sidebar.write(f"Доход: **{SALARY} ₪**")
-st.sidebar.write(f"Фикс. платежи: **{FIXED_COSTS} ₪**")
-st.sidebar.write(f"Биржа: **{STOCK_MARKET} ₪**")
-st.sidebar.divider()
-st.sidebar.success(f"Доступно на месяц: **{SALARY - TOTAL_FIXED} ₪**")
+    function draw() {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        data.forEach(env => {
+            let pct = (env.balance / env.limit) * 100;
+            let colorClass = 'bg-green'; // Изначально синий
+            if (pct < 40) colorClass = 'bg-orange';
+            if (pct < 15) colorClass = 'bg-red';
 
-st.subheader("Наши Конверты")
-cols = st.columns(len(ENVELOPE_PLAN))
-for i, row in env_df.iterrows():
-    with cols[i]:
-        pct = row["Остаток"] / row["План"] if row["План"] > 0 else 0
-        st.metric(label=row["Название"], value=f"{row['Остаток']} ₪")
-        st.progress(min(1.0, pct))
+            grid.innerHTML += `
+                <div class="envelope">
+                    <div style="font-size: 0.8em; color: #888">${env.name}</div>
+                    <div style="font-size: 1.5em; margin: 10px 0">${env.balance} ₪</div>
+                    <div class="bar ${colorClass}"></div>
+                </div>
+            `;
+        });
+        document.getElementById('main-total').innerText = data.reduce((s, e) => s + e.balance, 0);
+    }
 
-st.divider()
-with st.form("spend_log", clear_on_submit=True):
-    col1, col2 = st.columns(2)
-    target = col1.selectbox("Выберите конверт", env_df["Название"])
-    amt = col2.number_input("Сумма покупки (₪)", min_value=1)
-    if st.form_submit_button("✅ Записать расход"):
-        idx = env_df[env_df["Название"] == target].index[0]
-        if env_df.at[idx, "Остаток"] >= amt:
-            env_df.at[idx, "Остаток"] -= amt
-            env_df.to_csv("envelopes.csv", index=False)
-            st.success(f"Записано! Остаток в {target}: {env_df.at[idx, 'Остаток']} ₪")
-            st.rerun()
-        else:
-            st.error("В этом конверте закончились деньги!")
+    function runAI(e) {
+        if (e.key === 'Enter') {
+            let val = document.getElementById('ai-field').value.toLowerCase();
+            let [name, price] = val.split(' ');
+            let amount = parseFloat(price);
+
+            let target = data.find(item => item.name.toLowerCase().includes(name));
+            if (target && amount) {
+                target.balance -= amount;
+                document.getElementById('ai-field').value = '';
+                draw();
+            }
+        }
+    }
+    draw();
+</script>
+</body>
+</html>
+
