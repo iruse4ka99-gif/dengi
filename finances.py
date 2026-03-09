@@ -7,49 +7,50 @@ SHEET_URL = "https://script.google.com/macros/s/AKfycbxkvxn-l1zlwpsXV7EsiuOr1xoF
 
 st.set_page_config(page_title="Выход в Ноль", layout="centered")
 
-# 1. ЛИМИТЫ (ИТОГО С ФИКСИРОВАННЫМИ = 18 500 ₪)
-LIMITS = {
-    "Продукты": 4000, "Доп. уроки": 2254, "Лео": 300, 
-    "Машина": 500, "Одежда": 200, "Арина": 100, 
-    "Натан": 100, "Разное": 256
+# 1. КОНВЕРТЫ С ИКОНКАМИ И ЦВЕТАМИ (ИТОГО + ФИКС = 18 500 ₪)
+# Я подобрал цвета как на твоих скриншотах
+CATEGORIES = {
+    "Продукты": {"limit": 4000, "icon": "🍎", "color": "#FFF9E5"},
+    "Машина": {"limit": 500, "icon": "🚗", "color": "#E5F1FF"},
+    "Одежда": {"limit": 200, "icon": "👕", "color": "#FFE5F1"},
+    "Арина": {"limit": 100, "icon": "👧", "color": "#F3E5FF"},
+    "Натан": {"limit": 100, "icon": "👦", "color": "#E5F9FF"},
+    "Лео": {"limit": 300, "icon": "👶", "color": "#E5FFF3"},
+    "Доп. уроки": {"limit": 2254, "icon": "📚", "color": "#FFF0E5"},
+    "Разное": {"limit": 256, "icon": "📦", "color": "#F2F2F7"}
 }
 
-# 2. ПРОФЕССИОНАЛЬНЫЙ ДИЗАЙН (APPLE STYLE)
+# 2. СТИЛИ (МАКСИМАЛЬНО БЛИЗКО К СКРИНШОТАМ)
 st.markdown("""
     <style>
-    /* Полная очистка интерфейса от мусора Streamlit */
     header, footer, #MainMenu, [data-testid="stSidebar"] {visibility: hidden !important; display: none !important;}
-    .block-container {padding-top: 2rem !important;}
+    .block-container {padding-top: 1rem !important;}
     
-    html, body, [class*="stApp"] { background-color: #f2f2f7 !important; color: #1c1c1e !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica; }
+    html, body, [class*="stApp"] { background-color: #ffffff !important; }
 
-    /* Центрированный круг остатка */
-    .hero-circle {
-        width: 200px; height: 200px; border-radius: 100px;
+    /* Главный круг из скриншота "Smart Budgeting" */
+    .hero-container { text-align: center; padding: 20px 0; }
+    .main-circle {
+        width: 180px; height: 180px; border-radius: 90px;
         margin: 0 auto; display: flex; align-items: center; justify-content: center;
-        background: white; border: 10px solid #30d158;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+        border: 12px solid #30d158;
+        box-shadow: 0 15px 35px rgba(48,209,88,0.1);
     }
     
-    /* Карточки категорий */
-    .env-card {
-        background: white; border-radius: 24px; padding: 20px;
-        margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        border: 1px solid #e5e5ea;
+    /* Карточки как в "Budget Planner" */
+    .item-card {
+        border-radius: 22px; padding: 18px; margin-bottom: 12px;
+        border: 1px solid rgba(0,0,0,0.03);
+        display: flex; flexDirection: column; justify-content: space-between;
     }
-    .env-title { font-size: 11px; color: #8e8e93; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .env-value { font-size: 28px; font-weight: 400; color: #1c1c1e; margin: 4px 0; }
+    .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .item-icon { font-size: 20px; }
+    .item-name { font-size: 11px; font-weight: 700; color: #8e8e93; text-transform: uppercase; }
+    .item-value { font-size: 24px; font-weight: 600; color: #1c1c1e; }
     
-    /* Светофор (Полоска прогресса) */
-    .progress-bg { height: 4px; background: #f2f2f7; border-radius: 2px; width: 100%; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
-
-    /* Кнопка внесения */
-    .stButton>button {
-        background: #30d158 !important; color: white !important; border: none !important;
-        border-radius: 18px !important; height: 60px; font-size: 18px; font-weight: 600;
-        box-shadow: 0 10px 20px rgba(48,209,88,0.2) !important;
-    }
+    /* Тонкий прогресс-бар */
+    .p-bar-bg { height: 4px; background: rgba(0,0,0,0.05); border-radius: 2px; margin-top: 8px; }
+    .p-bar-fill { height: 100%; border-radius: 2px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,68 +63,65 @@ def load_data():
     except: return {}
 
 spent = load_data()
-balances = {n: (v - spent.get(n, 0)) for n, v in LIMITS.items()}
 
-# 4. ЛОГИКА ЦВЕТОВ
-def get_color(pct):
-    if pct > 0.5: return "#30d158" # Зеленый
-    if pct > 0.2: return "#ff9f0a" # Оранжевый
-    return "#ff3b30"               # Красный
+# 4. ИНТЕРФЕЙС (ГЛАВНЫЙ ЭКРАН)
+total_limit = sum(c['limit'] for c in CATEGORIES.values())
+total_spent = sum(spent.values())
+total_left = total_limit - total_spent
 
-# 5. ИНТЕРФЕЙС
-total_left = sum(balances.values())
-total_limit = sum(LIMITS.values())
-total_pct = total_left / total_limit if total_limit > 0 else 0
-main_color = get_color(total_pct)
+st.markdown(f'<div class="hero-container"><p style="color:#8e8e93; font-weight:700; font-size:12px;">МАРТ 2026</p></div>', unsafe_allow_html=True)
 
-st.markdown(f'<p style="text-align:center; color:#8e8e93; font-weight:600; font-size:13px; margin-bottom:0;">{datetime.datetime.now().strftime("%B %Y").upper()}</p>', unsafe_allow_html=True)
-
-# БОЛЬШОЙ КРУГ
+# КРУГ ОСТАТКА
 st.markdown(f"""
-    <div style="padding: 30px 0;">
-        <div class="hero-circle" style="border-color: {main_color};">
-            <div style="text-align:center;">
-                <div style="font-size:48px; font-weight:200;">{int(total_left)}</div>
-                <div style="font-size:10px; font-weight:700; color:{main_color};">ОСТАТОК ₪</div>
+    <div class="hero-container">
+        <div class="main-circle">
+            <div>
+                <div style="font-size:44px; font-weight:300;">{int(total_left)}</div>
+                <div style="font-size:10px; font-weight:700; color:#30d158;">ОСТАТОК ₪</div>
             </div>
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-# СЕТКА КОНВЕРТОВ (По 2 в ряд)
+# СЕТКА КАТЕГОРИЙ (2 в ряд)
 cols = st.columns(2)
-for i, (name, bal) in enumerate(balances.items()):
-    limit = LIMITS[name]
-    pct = bal / limit if limit > 0 else 0
-    color = get_color(pct)
+for i, (name, info) in enumerate(CATEGORIES.items()):
+    val = info['limit'] - spent.get(name, 0)
+    pct = max(0, min(1, val / info['limit']))
+    color = "#30d158" if pct > 0.3 else "#ff3b30"
+    
     with cols[i % 2]:
         st.markdown(f"""
-            <div class="env-card">
-                <div class="env-title">{name}</div>
-                <div class="env-value">{int(bal)} <span style="font-size:14px; color:#c7c7cc;">₪</span></div>
-                <div class="progress-bg">
-                    <div class="progress-fill" style="width:{int(pct*100)}%; background:{color};"></div>
+            <div class="item-card" style="background-color: {info['color']};">
+                <div class="item-header">
+                    <span class="item-name">{name}</span>
+                    <span class="item-icon">{info['icon']}</span>
+                </div>
+                <div class="item-value">{int(val)} ₪</div>
+                <div class="p-bar-bg">
+                    <div class="p-bar-fill" style="width: {int(pct*100)}%; background: {color};"></div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
 
-# ФИКСИРОВАННЫЕ ПЛАТЕЖИ (Красивая сноска внизу)
 st.markdown("<br>", unsafe_allow_html=True)
-with st.expander("💳 Обязательные платежи (Детали)"):
-    fixed = {"Машканта": 5700, "Кредиты": 2540, "Кружки": 1000, "Счета": 1200, "Здоровье": 350}
-    for n, v in fixed.items():
-        st.write(f"**{n}**: {v} ₪")
 
-st.write("---")
-
-# ФОРМА ВВОДА
-with st.form("add_transaction", clear_on_submit=True):
-    cat = st.selectbox("КАТЕГОРИЯ", list(LIMITS.keys()))
-    amt = st.number_input("СУММА ТРАТЫ", min_value=0, step=1, value=None, placeholder="0 ₪")
-    if st.form_submit_button("ВНЕСТИ В ТАБЛИЦУ"):
+# ФОРМА (Сделаем её очень простой)
+with st.form("quick_add", clear_on_submit=True):
+    st.markdown('<p style="font-size:12px; font-weight:700; color:#8e8e93;">ВНЕСТИ НОВУЮ ТРАТУ</p>', unsafe_allow_html=True)
+    c1, c2 = st.columns([1, 1])
+    with c1: cat = st.selectbox("Что?", list(CATEGORIES.keys()))
+    with c2: amt = st.number_input("Сколько?", min_value=0, step=1, value=None, placeholder="₪")
+    if st.form_submit_button("СОХРАНИТЬ В ОБЛАКО"):
         if amt:
             try:
                 requests.post(SHEET_URL, json={"category": cat, "amount": amt}, timeout=5)
                 st.cache_data.clear()
                 st.rerun()
-            except: st.error("Ошибка сети")
+            except: st.error("Ошибка!")
+
+# ФИКСИРОВАННЫЕ ВНИЗУ
+with st.expander("🔒 Обязательные платежи (10 790 ₪)"):
+    fixed = {"Машканта": 5700, "Кредиты": 2540, "Кружки": 1000, "Счета": 1200, "Здоровье": 350}
+    for n, v in fixed.items():
+        st.markdown(f'<div style="display:flex; justify-content:space-between; font-size:14px; padding:5px 0;"><span>{n}</span><b>{v} ₪</b></div>', unsafe_allow_html=True)
