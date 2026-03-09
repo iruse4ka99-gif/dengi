@@ -1,91 +1,59 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Семейный Бюджет: Выход в Ноль</title>
+import streamlit as st
+
+# Настройка стиля (темная тема и шрифты)
+st.markdown("""
     <style>
-        body { background-color: #121212; color: white; font-family: sans-serif; padding: 20px; }
-        .header { border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
-        .stats { color: #aaa; font-size: 0.9em; }
-        .total-box { background: #1e3a2f; color: #4caf50; padding: 15px; border-radius: 10px; display: inline-block; margin-top: 10px; }
-        
-        .envelopes-grid { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
-        .envelope { background: #1e1e1e; padding: 15px; border-radius: 12px; width: 160px; text-align: center; }
-        
-        /* Цвета индикаторов под конвертами */
-        .bar { height: 4px; width: 100%; margin-top: 10px; border-radius: 2px; }
-        .bg-green { background-color: #2196f3; } /* Синий как на фото изначально */
-        .bg-orange { background-color: #ff9800; }
-        .bg-red { background-color: #f44336; }
-
-        .ai-input { margin-top: 40px; background: #1e1e1e; padding: 20px; border-radius: 15px; }
-        input { width: 100%; background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; }
+    .main { background-color: #0e1117; color: white; }
+    .stMetric { background-color: #1e1e1e; padding: 15px; border-radius: 10px; border-bottom: 4px solid #2196f3; }
     </style>
-</head>
-<body>
+    """, unsafe_allow_html=True)
 
-<div class="header">
-    <h1>⚖️ Семейный Бюджет: Выход в Ноль</h1>
-    <div class="stats">
-        Доход: 18000 ₪ | Фикс. платежи: 10990 ₪ | Биржа: 500 ₪
-    </div>
-    <div class="total-box">Доступно на месяц: <span id="main-total">6510</span> ₪</div>
-</div>
+st.title("⚖️ Семейный Бюджет: Выход в Ноль")
 
-<div class="envelopes-grid" id="grid">
-    </div>
+# Данные конвертов
+if 'envelopes' not in st.session_state:
+    st.session_state.envelopes = [
+        {"name": "Продукты", "balance": 250, "limit": 2000},
+        {"name": "Доп. уроки детей", "balance": 1850, "limit": 2500},
+        {"name": "Машина (бензин)", "balance": 700, "limit": 1500},
+        {"name": "Памперсы/Уход", "balance": 450, "limit": 600},
+        {"name": "Разное/Запас", "balance": 380, "limit": 1000}
+    ]
 
-<div class="ai-input">
-    <p>Напиши расход (например: <b>продукты 150</b>)</p>
-    <input type="text" id="ai-field" placeholder="Введите название и сумму..." onkeypress="runAI(event)">
-</div>
+# Панель состояния
+total_balance = sum(e['balance'] for e in st.session_state.envelopes)
+st.sidebar.metric("Доступно на месяц", f"{total_balance} ₪")
+st.sidebar.write("---")
+st.sidebar.write("Доход: 18000 ₪")
+st.sidebar.write("Фикс. платежи: 10990 ₪")
 
-<script>
-    // Твои конверты из приложения
-    let data = [
-        { id: 'prod', name: "Продукты", balance: 250, limit: 2000 },
-        { id: 'urok', name: "Доп. уроки", balance: 1850, limit: 2500 },
-        { id: 'car', name: "Машина", balance: 700, limit: 1500 },
-        { id: 'pamp', name: "Памперсы", balance: 450, limit: 600 },
-        { id: 'razn', name: "Разное", balance: 380, limit: 1000 }
-    ];
+# Отображение конвертов в ряд
+cols = st.columns(len(st.session_state.envelopes))
+for i, env in enumerate(st.session_state.envelopes):
+    with cols[i]:
+        # Логика цвета (Светофор)
+        percent = env['balance'] / env['limit']
+        if percent < 0.15: color = "🔴"
+        elif percent < 0.5: color = "🟡"
+        else: color = "🔵"
+        
+        st.metric(f"{color} {env['name']}", f"{env['balance']} ₪")
+        st.progress(min(max(percent, 0.0), 1.0))
 
-    function draw() {
-        const grid = document.getElementById('grid');
-        grid.innerHTML = '';
-        data.forEach(env => {
-            let pct = (env.balance / env.limit) * 100;
-            let colorClass = 'bg-green'; // Изначально синий
-            if (pct < 40) colorClass = 'bg-orange';
-            if (pct < 15) colorClass = 'bg-red';
+# ИИ ВВОД
+st.write("---")
+user_input = st.text_input("ИИ Помощник: напиши расход (например: еда 100)")
 
-            grid.innerHTML += `
-                <div class="envelope">
-                    <div style="font-size: 0.8em; color: #888">${env.name}</div>
-                    <div style="font-size: 1.5em; margin: 10px 0">${env.balance} ₪</div>
-                    <div class="bar ${colorClass}"></div>
-                </div>
-            `;
-        });
-        document.getElementById('main-total').innerText = data.reduce((s, e) => s + e.balance, 0);
-    }
-
-    function runAI(e) {
-        if (e.key === 'Enter') {
-            let val = document.getElementById('ai-field').value.toLowerCase();
-            let [name, price] = val.split(' ');
-            let amount = parseFloat(price);
-
-            let target = data.find(item => item.name.toLowerCase().includes(name));
-            if (target && amount) {
-                target.balance -= amount;
-                document.getElementById('ai-field').value = '';
-                draw();
-            }
-        }
-    }
-    draw();
-</script>
-</body>
-</html>
-
+if user_input:
+    try:
+        parts = user_input.split()
+        name_input = parts[0].lower()
+        amount = float(parts[1])
+        
+        for e in st.session_state.envelopes:
+            if name_input in e['name'].lower():
+                e['balance'] -= amount
+                st.success(f"Списано {amount} ₪ из '{e['name']}'")
+                st.rerun()
+    except:
+        st.error("Напиши в формате: название сумма (например: машина 50)")
