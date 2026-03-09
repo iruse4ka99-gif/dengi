@@ -1,6 +1,9 @@
 import streamlit as st
 import datetime
 
+# Твоя база данных
+SHEET_URL = "https://docs.google.com/spreadsheets/d/16QBJU3oynwyKvuGP4z3ukI4lCdolvxajVyfXRSshLO0/edit?usp=sharing"
+
 st.set_page_config(page_title="Выход в Ноль", layout="wide")
 
 # ЖЕСТКИЙ ФИКС ДЛЯ iPAD/SAFARI (Абсолютная темнота)
@@ -57,7 +60,6 @@ st.markdown(f'<div style="text-align:center; padding-top:10px; font-size:16px; f
 main_c, side_c = st.columns([3.5, 1])
 
 with main_c:
-    # ГЛАВНЫЙ КРУГ
     total_left = sum(v['b'] for v in st.session_state.db['envs'].values())
     total_limit = sum(v['l'] for v in st.session_state.db['envs'].values())
     pct = int((total_left / total_limit) * 100) if total_limit > 0 else 0
@@ -73,7 +75,6 @@ with main_c:
         </div>
     """, unsafe_allow_html=True)
 
-    # НЕПРОБИВАЕМЫЕ КАРТОЧКИ КОНВЕРТОВ (Без кнопок, только верстка)
     envs = list(st.session_state.db['envs'].items())
     for i in range(0, 8, 4):
         cols = st.columns(4)
@@ -83,16 +84,14 @@ with main_c:
                 if idx < 7:
                     name, d = envs[idx]
                     money_left_pct = d['b'] / d['l'] if d['l'] > 0 else 0
-                    
                     is_warning = money_left_pct < (1 - month_progress)
                     color = "#ff453a" if is_warning else ("#30d158" if money_left_pct > 0.3 else "#ff9f0a")
                     history_text = " | ".join(d["h"][:2]) if d["h"] else "Трат пока нет"
                     
-                    # Рисуем карточку единым куском кода, чтобы iOS не мог ее сломать
                     html_card = f"""
                     <div style="background-color: #0c0c0e; border-radius: 20px; padding: 20px; border-top: 2px solid {color}; margin-bottom: 15px; text-align: center;">
                         <div style="color: #666; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;">{name}</div>
-                        <div style="color: #fff; font-size: 30px; font-weight: 300;">{int(d['b'])} ₪</div>
+                        <div style="color: #fff; font-size: 30px; font-weight: 300;">{int(d['b'])}</div>
                         <div style="color: {color}; font-size: 10px; font-weight: 600; margin-top: 4px;">{int(money_left_pct*100)}% от {int(d['l'])}</div>
                         <div style="margin-top: 15px; border-top: 1px solid #1a1a1a; padding-top: 10px; color: #444; font-size: 10px;">
                             {history_text}
@@ -119,14 +118,13 @@ with side_c:
     st.markdown(f'<div style="text-align:center; margin-top:40px;"><div style="color:#ff3b30; font-size:12px; letter-spacing:2px;">{now.strftime("%B").upper()}</div><div style="font-size:56px; font-weight:200; color:#fff;">{now.day}</div></div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ПАНЕЛЬ ВВОДА
 st.write("---")
 with st.form("input_form", clear_on_submit=True):
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1: cat = st.selectbox("", list(st.session_state.db['envs'].keys()), label_visibility="collapsed")
     with c2: val = st.number_input("", min_value=0, step=1, value=0, label_visibility="collapsed")
     with c3:
-        if st.form_submit_button("ВНЕСТИ ТРАТУ"):
+        if st.form_submit_button("ВНЕСТИ ТРАТУ (СИНХР.)"):
             if val > 0:
                 st.session_state.db['envs'][cat]['b'] -= val
                 st.session_state.db['envs'][cat]['h'].insert(0, f"-{val}₪")
