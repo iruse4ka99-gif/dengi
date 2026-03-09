@@ -2,59 +2,30 @@ import streamlit as st
 import datetime
 import requests
 
-# Твоя актуальная ссылка на Google Script (уже вставлена)
+# Твоя ссылка на Google Script
 SHEET_URL = "https://script.google.com/macros/s/AKfycbyAGMqKyFvKhWWVy2taQr-i5dqfvdif3sFr6elhini9USrk1NqqA7y9weIcGhIKuhim/exec"
 
 st.set_page_config(page_title="Выход в Ноль", layout="wide")
 
-# СВЕТЛАЯ ТЕМА (Настройка внешнего вида)
+# СВЕТЛАЯ ТЕМА
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-    
-    html, body, [class*="stApp"] { 
-        background-color: #ffffff !important; 
-        color: #1a1a1a !important; 
-        font-family: 'Inter', sans-serif; 
-    }
+    html, body, [class*="stApp"] { background-color: #ffffff !important; color: #1a1a1a !important; font-family: 'Inter', sans-serif; }
     header, footer {visibility: hidden;}
-
     input, select, textarea, div[data-baseweb="input"], div[data-baseweb="select"] > div {
-        background-color: #f8f9fa !important;
-        border: 1px solid #e0e0e0 !important;
-        color: #1a1a1a !important;
-        border-radius: 12px !important;
+        background-color: #f8f9fa !important; border: 1px solid #e0e0e0 !important; color: #1a1a1a !important; border-radius: 12px !important;
     }
-    
     .stButton>button {
-        background-color: #30d158 !important; 
-        color: white !important;
-        border: none !important; 
-        border-radius: 12px !important;
-        height: 48px; width: 100%; 
-        font-weight: 600;
-        box-shadow: 0 4px 12px rgba(48, 209, 88, 0.2);
+        background-color: #30d158 !important; color: white !important; border: none !important; border-radius: 12px !important;
+        height: 48px; width: 100%; font-weight: 600; box-shadow: 0 4px 12px rgba(48, 209, 88, 0.2);
     }
-
-    .fixed-box { 
-        background: #fdfdfd; 
-        border-radius: 20px; 
-        padding: 25px; 
-        border: 1px solid #f0f0f0;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    }
-    .fixed-row { 
-        display: flex; 
-        justify-content: space-between; 
-        padding: 10px 0; 
-        border-bottom: 1px solid #f0f0f0; 
-        font-size: 13px; 
-        color: #666; 
-    }
+    .fixed-box { background: #fdfdfd; border-radius: 20px; padding: 25px; border: 1px solid #f0f0f0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .fixed-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #666; }
     </style>
     """, unsafe_allow_html=True)
 
-# ИНИЦИАЛИЗАЦИЯ ДАННЫХ
+# ДАННЫЕ (Пока в памяти сессии)
 if 'db' not in st.session_state:
     st.session_state.db = {
         "income": 18500,
@@ -102,21 +73,12 @@ with main_c:
                     money_left_pct = d['b'] / d['l'] if d['l'] > 0 else 0
                     color = "#30d158" if money_left_pct > 0.3 else "#ff9f0a"
                     history_text = " | ".join(d["h"][:2]) if d["h"] else "Трат пока нет"
-                    
                     st.markdown(f"""
-                    <div style="background-color: #fdfdfd; border-radius: 20px; padding: 20px; border: 1px solid #f0f0f0; margin-bottom: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                    <div style="background-color: #fdfdfd; border-radius: 20px; padding: 20px; border: 1px solid #f0f0f0; margin-bottom: 15px; text-align: center;">
                         <div style="color: #999; font-size: 10px; text-transform: uppercase;">{name}</div>
                         <div style="color: #1a1a1a; font-size: 28px; font-weight: 400;">{int(d['b'])}</div>
                         <div style="color: {color}; font-size: 11px; font-weight: 600;">{int(money_left_pct*100)}%</div>
                         <div style="margin-top: 10px; color: #bbb; font-size: 10px;">{history_text}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                elif idx == 7:
-                    days_to_go = 31 - now.day
-                    st.markdown(f"""
-                    <div style="background-color: #f8f9fa; border-radius: 20px; padding: 20px; text-align: center; border: 1px dashed #e0e0e0;">
-                        <div style="color: #999; font-size: 10px; text-transform: uppercase;">Дней до 1-го</div>
-                        <div style="color: #1a1a1a; font-size: 28px; font-weight: 300;">{days_to_go}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -133,19 +95,21 @@ st.write("---")
 # ФОРМА ЗАПИСИ
 with st.form("input_form", clear_on_submit=True):
     c1, c2, c3 = st.columns([2, 1, 1])
-    with c1: cat = st.selectbox("", list(st.session_state.db['envs'].keys()), label_visibility="collapsed")
-    with c2: val = st.number_input("", min_value=0, step=1, value=0, key="val_input", label_visibility="collapsed")
+    with c1: 
+        cat = st.selectbox("", list(st.session_state.db['envs'].keys()), label_visibility="collapsed")
+    with c2: 
+        # ВОТ ЗДЕСЬ ИСПРАВЛЕНО: value=None делает поле пустым
+        val = st.number_input("", min_value=0, step=1, value=None, placeholder="Сумма", key="val_input", label_visibility="collapsed")
     with c3:
         if st.form_submit_button("ВНЕСТИ ТРАТУ"):
-            if val > 0:
+            if val is not None and val > 0:
                 st.session_state.db['envs'][cat]['b'] -= val
                 st.session_state.db['envs'][cat]['h'].insert(0, f"-{val}₪")
                 
-                # ОТПРАВКА В GOOGLE
                 try:
                     payload = f"Дата: {now.strftime('%d.%m %H:%M')}, Категория: {cat}, Сумма: {val}"
                     requests.post(SHEET_URL, data=payload)
-                    st.toast("Синхронизировано с таблицей!", icon="✅")
+                    st.toast(f"Записано: {val} ₪ в {cat}", icon="✅")
                 except:
                     st.error("Ошибка связи")
                 
