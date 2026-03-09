@@ -2,7 +2,7 @@ import streamlit as st
 import datetime
 
 # Твоя база данных
-SHEET_URL = "https://docs.google.com/spreadsheets/d/16QBJU3oynwyKvuGP4z3ukI4lCdolvxajVyfXRSshLO0/edit?usp=sharing"
+SHEET_URL = "https://script.google.com/macros/s/AKfycbyOHizCE2-_pjAbPhlImMW_KbTQmHDX4zheunapHU_WOFgn3qFS0PYbOC-7ed1QYUw3/exec"
 
 st.set_page_config(page_title="Выход в Ноль", layout="wide")
 
