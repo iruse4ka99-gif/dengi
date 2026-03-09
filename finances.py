@@ -2,18 +2,12 @@ import streamlit as st
 import datetime
 import requests
 
-# ТВОЯ АКТУАЛЬНАЯ ССЫЛКА
+# ТВОЯ ССЫЛКА ИЗ GOOGLE (не меняй её, если она рабочая)
 SHEET_URL = "https://script.google.com/macros/s/AKfycbxkvxn-l1zlwpsXV7EsiuOr1xoFQCThBk6KFbeaIUzD7reCD2zoLMo2hdbpKmizEWxf/exec"
 
 st.set_page_config(page_title="Выход в Ноль", layout="wide")
 
-# ГЛАВНЫЕ ДАННЫЕ (Лимиты)
-LIMITS = {
-    "Продукты": 4000, "Доп. уроки": 2254, "Машина": 500, 
-    "Одежда": 200, "Арина": 100, "Натан": 100, "Разное": 556
-}
-
-# 1. СТИЛИ (Твой чистый белый интерфейс)
+# 1. СТИЛИ
 st.markdown("""
     <style>
     html, body, [class*="stApp"] { background-color: #ffffff !important; color: #1a1a1a !important; font-family: 'Inter', sans-serif; }
@@ -30,34 +24,44 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. ЗАГРУЗКА ДАННЫХ ИЗ GOOGLE (Синхронизация)
-@st.cache_data(ttl=10) # Обновлять данные каждые 10 секунд
+# 2. ГЛАВНЫЕ ДАННЫЕ (Ежедневные конверты)
+# Я добавила Лео и обновила список категорий
+LIMITS = {
+    "Продукты": 4000, 
+    "Машина": 500, 
+    "Одежда": 200, 
+    "Арина": 100, 
+    "Натан": 100, 
+    "Лео": 600,          # Новый конверт для памперсов и питания
+    "Доп. уроки": 2254, 
+    "Разное": 556         # Сюда вносим стул и прочее
+}
+
+# 3. ЗАГРУЗКА ДАННЫХ ИЗ GOOGLE
+@st.cache_data(ttl=5)
 def get_spent_amounts():
     try:
         response = requests.get(SHEET_URL, timeout=5)
-        if response.status_code == 200:
-            return response.json()
+        return response.json() if response.status_code == 200 else {}
     except:
         return {}
-    return {}
 
 spent_db = get_spent_amounts()
 
-# 3. РАСЧЕТ ТЕКУЩИХ ОСТАТКОВ
-current_balances = {}
-for name, limit in LIMITS.items():
-    spent = spent_db.get(name, 0)
-    current_balances[name] = limit - spent
+# 4. РАСЧЕТ ОСТАТКОВ
+current_balances = {name: (limit - spent_db.get(name, 0)) for name, limit in LIMITS.items()}
 
-# 4. ИНТЕРФЕЙС
+# 5. ИНТЕРФЕЙС
+# Фиксированные траты (они живут отдельно и не вычитаются из круга)
 st.session_state.fixed = {"Машканта": 5700, "Кредиты": 2540, "Кружки": 1000, "Счета": 1200, "Здоровье": 350}
+
 now = datetime.datetime.now()
 st.markdown(f'<div style="text-align:center; padding-top:10px; font-size:16px; color:#999;">{now.strftime("%B %Y").upper()}</div>', unsafe_allow_html=True)
 
 main_c, side_c = st.columns([3.5, 1])
 
 with main_c:
-    # КРУГОВОЙ ИНДИКАТОР
+    # ОБЩИЙ КРУГ ОСТАТКА (только для конвертов)
     total_left = sum(current_balances.values())
     total_limit = sum(LIMITS.values())
     pct = int((total_left / total_limit) * 100) if total_limit > 0 else 0
@@ -73,20 +77,24 @@ with main_c:
         </div>
     """, unsafe_allow_html=True)
 
-    # КАРТОЧКИ КАТЕГОРИЙ
-    cols = st.columns(4)
-    for idx, (name, balance) in enumerate(current_balances.items()):
-        with cols[idx % 4]:
-            limit = LIMITS[name]
-            money_left_pct = balance / limit if limit > 0 else 0
-            color = "#30d158" if money_left_pct > 0.3 else "#ff9f0a"
-            st.markdown(f"""
-            <div style="background-color: #fdfdfd; border-radius: 20px; padding: 20px; border: 1px solid #f0f0f0; margin-bottom: 15px; text-align: center;">
-                <div style="color: #999; font-size: 10px; text-transform: uppercase;">{name}</div>
-                <div style="color: #1a1a1a; font-size: 26px; font-weight: 400;">{int(balance)}</div>
-                <div style="color: {color}; font-size: 11px; font-weight: 600;">{int(money_left_pct*100)}%</div>
-            </div>
-            """, unsafe_allow_html=True)
+    # КАРТОЧКИ КАТЕГОРИЙ (теперь их 8)
+    for i in range(0, 8, 4):
+        cols = st.columns(4)
+        for j in range(4):
+            idx = i + j
+            if idx < len(current_balances):
+                name = list(current_balances.keys())[idx]
+                balance = current_balances[name]
+                limit = LIMITS[name]
+                pct_left = balance / limit if limit > 0 else 0
+                color = "#30d158" if pct_left > 0.3 else "#ff9f0a"
+                with cols[j]:
+                    st.markdown(f"""
+                    <div style="background-color: #fdfdfd; border-radius: 20px; padding: 15px; border: 1px solid #f0f0f0; margin-bottom: 10px; text-align: center;">
+                        <div style="color: #999; font-size: 9px; text-transform: uppercase;">{name}</div>
+                        <div style="color: #1a1a1a; font-size: 22px; font-weight: 400;">{int(balance)}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
 with side_c:
     st.markdown('<div class="fixed-box">', unsafe_allow_html=True)
@@ -107,10 +115,9 @@ with st.form("my_form", clear_on_submit=True):
     with c3:
         if st.form_submit_button("ВНЕСТИ ТРАТУ") and amount:
             try:
-                # Отправляем данные в формате JSON
                 requests.post(SHEET_URL, json={"category": category, "amount": amount}, timeout=5)
-                st.toast(f"Записано в облако: {amount} ₪", icon="✅")
-                st.cache_data.clear() # Сбрасываем кэш, чтобы сразу увидеть новую сумму
+                st.toast(f"Добавлено в {category}: {amount} ₪", icon="✅")
+                st.cache_data.clear()
                 st.rerun()
             except:
                 st.toast("Ошибка связи", icon="⚠️")
