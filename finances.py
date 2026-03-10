@@ -4,52 +4,65 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import date
 
-# --- 1. НАСТРОЙКИ СТРАНИЦЫ ---
+# --- 1. НАСТРОЙКИ ---
 st.set_page_config(page_title="Кошелёк", layout="centered")
-# Подключаем красивые иконки от Google
 st.markdown('<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">', unsafe_allow_html=True)
 
-# Палитра: Нежные пастельные цвета для категорий
+# Пастельная палитра
 colors = {
     "Продукты и Хозтовары": "#FF9F89", "Доп. уроки": "#89E3FF", "Лео": "#FF89F6",
     "Здоровье и Аптека": "#89FF9F", "Машина": "#FFEC89", "Арина": "#FF89B2",
     "Натан": "#9F89FF", "Онлайн и Подписки": "#B289FF", "Разное": "#B0B0B0"
 }
 
-# --- 2. ДИЗАЙН (CSS) ---
+# --- 2. СТИЛЬ "ЖИДКОЕ СТЕКЛО" (Glassmorphism) ---
 st.markdown(f"""
     <style>
-    #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}} header {{visibility: hidden;}}
-    .block-container {{padding-top: 1rem;}}
+    /* Прячем лишнее */
+    #MainMenu {{ visibility: hidden; }} footer {{ visibility: hidden; }} header {{ visibility: hidden; }}
     
-    /* Три метрики в одну строку сверху */
-    .kpi-row {{ display: flex; justify-content: space-between; gap: 8px; margin-bottom: 15px; }}
-    .kpi-box {{ flex: 1; background: rgba(128,128,128,0.08); padding: 12px; border-radius: 14px; text-align: center; border: 1px solid rgba(0,0,0,0.03); }}
-    .kpi-label {{ font-size: 10px; color: #8E8E93; text-transform: uppercase; font-weight: 600; }}
-    .kpi-val {{ font-size: 17px; font-weight: 800; color: #1C1C1E; }}
+    /* Фон страницы (мягкий градиент) */
+    .stApp {{
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }}
 
-    /* Стиль пастельных карточек */
-    .card {{ border-radius: 18px; padding: 14px 18px; margin-bottom: 12px; border: 1px solid rgba(128,128,128,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }}
-    .card-row {{ display: flex; justify-content: space-between; align-items: center; }}
-    .card-name {{ font-size: 15px; font-weight: 700; color: #2C2C2E; }}
-    .card-amt {{ font-size: 19px; font-weight: 800; }}
-    
-    /* Тонкий прогресс-бар */
-    .prog-bg {{ width: 100%; height: 5px; background: rgba(0,0,0,0.04); border-radius: 10px; margin: 10px 0; }}
-    .prog-fill {{ height: 100%; border-radius: 10px; transition: width 0.5s ease; }}
+    /* Стеклянные метрики сверху */
+    .glass-metrics {{
+        display: flex; justify-content: space-around;
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        margin-bottom: 20px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    }}
+    .m-item {{ text-align: center; }}
+    .m-label {{ font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; }}
+    .m-val {{ font-size: 18px; font-weight: 800; color: #333; }}
+
+    /* Стеклянные карточки конвертов */
+    .glass-card {{
+        background: rgba(255, 255, 255, 0.45);
+        backdrop-filter: blur(12px);
+        border-radius: 24px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }}
+    .card-head {{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }}
+    .cat-name {{ font-size: 16px; font-weight: 700; color: #444; }}
+    .rem-val {{ font-size: 20px; font-weight: 900; color: #1C1C1E; }}
+    .rem-label {{ font-size: 9px; color: #888; text-align: right; text-transform: uppercase; }}
+
+    /* Прогресс-бар */
+    .p-bg {{ width: 100%; height: 6px; background: rgba(0,0,0,0.05); border-radius: 10px; margin: 10px 0; }}
+    .p-fill {{ height: 100%; border-radius: 10px; transition: width 0.6s ease-in-out; }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. ПОДКЛЮЧЕНИЕ К GOOGLE ТАБЛИЦЕ ---
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    # Читаем данные из листа "Data" (убедись, что лист в таблице называется так)
-    df_gsheet = conn.read(worksheet="Data", ttl="0m")
-    gsheet_data = dict(zip(df_gsheet['Category'], df_gsheet['Spent']))
-except Exception as e:
-    gsheet_data = {}
-
-# --- 4. КАТЕГОРИИ И ПРАВИЛА ---
+# --- 3. ДАННЫЕ ---
 envelopes = {
     "Продукты и Хозтовары": {"limit": 4000, "icon": "shopping_cart"},
     "Доп. уроки": {"limit": 2254, "icon": "menu_book"},
@@ -62,78 +75,117 @@ envelopes = {
     "Разное": {"limit": 100, "icon": "more_horiz"}
 }
 
-# Если в таблице пусто, начинаем с 0
-if 'spent' not in st.session_state:
-    st.session_state.spent = {cat: gsheet_data.get(cat, 0) for cat in envelopes}
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    df = conn.read(worksheet="Data", ttl="0m")
+    gsheet_spent = dict(zip(df['Category'], df['Spent']))
+    gsheet_carryover = dict(zip(df['Category'], df['Carryover']))
+except:
+    gsheet_spent = {cat: 0 for cat in envelopes}
+    gsheet_carryover = {cat: 0 for cat in envelopes}
 
-# --- 5. ВЕРХНЯЯ ПАНЕЛЬ С ЦИФРАМИ ---
-total_spent = sum(st.session_state.spent.values())
-total_limit = sum(e['limit'] for e in envelopes.values())
-rem = total_limit - total_spent
+if 'spent' not in st.session_state: st.session_state.spent = gsheet_spent
+if 'carryover' not in st.session_state: st.session_state.carryover = gsheet_carryover
 
-st.markdown(f"""
-<div class="kpi-row">
-    <div class="kpi-box"><div class="kpi-label">Лимит</div><div class="kpi-val">{total_limit}₪</div></div>
-    <div class="kpi-box"><div class="kpi-label">Траты</div><div class="kpi-val" style="color:#FF3B30;">{total_spent}₪</div></div>
-    <div class="kpi-box"><div class="kpi-label">Остаток</div><div class="kpi-val" style="color:#34C759;">{rem}₪</div></div>
-</div>
-""", unsafe_allow_html=True)
+# --- 4. НАВИГАЦИЯ (Вкладки) ---
+tab1, tab2, tab3 = st.tabs(["💎 Кошелёк", "🔁 Перевод", "📜 История"])
 
-# --- 6. КОЛЬЦО И ФОРМА ВВОДА ---
-c1, c2 = st.columns([1, 1.1])
+# --- ВКЛАДКА 1: ГЛАВНАЯ ---
+with tab1:
+    total_l = sum(e['limit'] for e in envelopes.values()) + sum(st.session_state.carryover.values())
+    total_s = sum(st.session_state.spent.values())
+    total_r = total_l - total_s
 
-with c1:
-    with st.form("add_transaction", clear_on_submit=True):
-        st.write("➕ **Новая трата**")
-        cat_choice = st.selectbox("Куда?", list(envelopes.keys()), label_visibility="collapsed")
-        amount = st.number_input("Сколько ₪", min_value=0, step=10, format="%d")
-        if st.form_submit_button("ЗАПИСАТЬ", use_container_width=True, type="primary") and amount > 0:
-            st.session_state.spent[cat_choice] += amount
-            try:
-                # Отправляем обновленные данные в Google Таблицу
-                new_df = pd.DataFrame([{'Category': k, 'Spent': v} for k,v in st.session_state.spent.items()])
-                conn.update(worksheet="Data", data=new_df)
-            except: pass
-            st.rerun()
-
-with c2:
-    # Данные для диаграммы (только те, где траты > 0)
-    df_chart = pd.DataFrame([{"c": k, "v": v} for k, v in st.session_state.spent.items() if v > 0])
-    today_str = date.today().strftime("%d.%m")
-    
-    # Рисуем кольцо
-    fig = px.pie(df_chart if not df_chart.empty else pd.DataFrame([{"c":"-","v":1}]), 
-                 values='v', names='c', hole=0.65, 
-                 color='c', color_discrete_map=colors if not df_chart.empty else {"-":"#F2F2F7"})
-    fig.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=170)
-    fig.update_traces(textinfo='none', hovertemplate=None)
-    # Добавляем дату и сумму в центр
-    fig.add_annotation(text=f"<span style='font-size:13px; color:#8E8E93;'>{today_str}</span><br><b style='font-size:18px;'>{total_spent}₪</b>", 
-                       x=0.5, y=0.5, showarrow=False)
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-st.divider()
-
-# --- 7. ПАСТЕЛЬНЫЕ КАРТОЧКИ КАТЕГОРИЙ ---
-for name, info in envelopes.items():
-    spent_val = st.session_state.spent[name]
-    limit_val = info['limit']
-    percentage = min(int((spent_val / limit_val) * 100), 100) if limit_val > 0 else 0
-    main_color = colors.get(name, "#8e8e93")
-    
+    # Жидкие метрики
     st.markdown(f"""
-    <div class="card" style="background: {main_color}1F;">
-        <div class="card-row">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="material-symbols-outlined" style="color:{main_color}; font-size:24px;">{info['icon']}</span>
-                <span class="card-name">{name}</span>
-            </div>
-            <div class="card-amt" style="color:{main_color if spent_val > 0 else '#C7C7CC'};">-{spent_val}₪</div>
-        </div>
-        <div class="prog-bg"><div class="prog-fill" style="width:{percentage}%; background:{main_color};"></div></div>
-        <div style="display:flex; justify-content:space-between; font-size:11px; color:#8E8E93; font-weight:500;">
-            <span>{percentage}% потрачено</span>
-            <span>Свободно {limit_val - spent_val}₪</span>
-        </div>
+    <div class="glass-metrics">
+        <div class="m-item"><div class="m-label">Лимит</div><div class="m-val">{total_l}₪</div></div>
+        <div class="m-item"><div class="m-label">Траты</div><div class="m-val" style="color:#FF4B4B;">{total_s}₪</div></div>
+        <div class="m-item"><div class="m-label">Остаток</div><div class="m-val" style="color:#2ECC71;">{total_r}₪</div></div>
     </div>
     """, unsafe_allow_html=True)
+
+    c1, c2 = st.columns([1, 1.2])
+    with c1:
+        with st.form("quick_add", clear_on_submit=True):
+            cat = st.selectbox("Куда?", list(envelopes.keys()))
+            val = st.number_input("Сколько ₪", min_value=0, step=10)
+            if st.form_submit_button("ЗАПИСАТЬ", use_container_width=True):
+                st.session_state.spent[cat] += val
+                new_df = pd.DataFrame([{'Category': k, 'Spent': st.session_state.spent[k], 'Carryover': st.session_state.carryover[k]} for k in envelopes])
+                conn.update(worksheet="Data", data=new_df)
+                st.rerun()
+    
+    with c2:
+        chart_df = pd.DataFrame([{"c": k, "v": v} for k, v in st.session_state.spent.items() if v > 0])
+        fig = px.pie(chart_df if not chart_df.empty else pd.DataFrame([{"c":"-","v":1}]), 
+                     values='v', names='c', hole=0.75, color='c', color_discrete_map=colors if not chart_df.empty else {"-":"#EEE"})
+        fig.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=160, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        fig.add_annotation(text=f"<b>{date.today().strftime('%d.%m')}</b>", x=0.5, y=0.5, showarrow=False, font_size=14)
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+    # Карточки конвертов
+    for name, info in envelopes.items():
+        spent = st.session_state.spent[name]
+        carry = st.session_state.carryover[name]
+        limit = info['limit'] + carry
+        rem = limit - spent
+        perc = min(int((spent / limit) * 100), 100) if limit > 0 else 100
+        clr = colors.get(name, "#888")
+
+        st.markdown(f"""
+        <div class="glass-card">
+            <div class="card-head">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="material-symbols-outlined" style="color:{clr}; font-size:28px;">{info['icon']}</span>
+                    <span class="cat-name">{name}</span>
+                </div>
+                <div>
+                    <div class="rem-label">Осталось</div>
+                    <div class="rem-val" style="color:{'#2ECC71' if rem >= 0 else '#FF4B4B'};">{rem}₪</div>
+                </div>
+            </div>
+            <div class="p-bg"><div class="p-fill" style="width:{perc}%; background:{clr}; box-shadow: 0 0 10px {clr}66;"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:#777;">
+                <span>Потрачено: {spent}₪</span>
+                <span>Лимит: {limit}₪</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# --- ВКЛАДКА 2: ПЕРЕВОД ---
+with tab2:
+    st.subheader("🔁 Перебросить деньги")
+    st.info("Если в одном конверте минус, а в другом остались деньги — можно их перевести.")
+    with st.form("transfer_form"):
+        col1, col2 = st.columns(2)
+        with col1: from_cat = st.selectbox("Откуда забрать?", list(envelopes.keys()))
+        with col2: to_cat = st.selectbox("Куда добавить?", list(envelopes.keys()))
+        t_amt = st.number_input("Сумма перевода ₪", min_value=1, step=5)
+        
+        if st.form_submit_button("ВЫПОЛНИТЬ ПЕРЕВОД", use_container_width=True):
+            # Перевод работает через Carryover (Копилку)
+            st.session_state.carryover[from_cat] -= t_amt
+            st.session_state.carryover[to_cat] += t_amt
+            new_df = pd.DataFrame([{'Category': k, 'Spent': st.session_state.spent[k], 'Carryover': st.session_state.carryover[k]} for k in envelopes])
+            conn.update(worksheet="Data", data=new_df)
+            st.success(f"Перевели {t_amt}₪ из {from_cat} в {to_cat}")
+            st.rerun()
+
+# --- ВКЛАДКА 3: ИСТОРИЯ И ЗАКРЫТИЕ ---
+with tab3:
+    st.subheader("📜 Управление месяцем")
+    if st.button("🏁 ЗАКРЫТЬ МЕСЯЦ И СОХРАНИТЬ КОПИЛКУ", use_container_width=True):
+        new_c = {}
+        for n, i in envelopes.items():
+            new_c[n] = (i['limit'] + st.session_state.carryover[n]) - st.session_state.spent[n]
+        
+        final_df = pd.DataFrame([{'Category': k, 'Spent': 0, 'Carryover': new_c[k]} for k in envelopes])
+        conn.update(worksheet="Data", data=final_df)
+        st.balloons()
+        st.success("Все остатки перенесены в копилку, траты обнулены!")
+        st.rerun()
+
+    st.divider()
+    st.write("📊 Твоя текущая таблица (сырые данные):")
+    st.dataframe(df, use_container_width=True)
