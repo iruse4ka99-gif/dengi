@@ -1,120 +1,100 @@
-import telebot
-from telebot import types
+import streamlit as st
 
-# ТОКЕН (уже твой)
-TOKEN = '8631895320:AAEYvi_bm5U7SZhClVU0LY4AOS0bPZWcG3Y'
-bot = telebot.TeleBot(TOKEN)
+# Настройка страницы
+st.set_page_config(page_title="Ира: Макс-Бюджет", page_icon="💎", layout="centered")
 
-# 18 500 - 5700(М) - 2540(К) - 1200(С) - 1000(Круж) = 8060 на остальное
-# Распределяем 8060: 4000(П), 2254(Уроки), 100(А), 100(Н), 1000(Лео), 350(Зд), 256(Маш)
-categories = {
-    "🛒 Продукты": 4000,
-    "📚 Доп. уроки": 2254,
-    "🏋️ Спорт": 1000,
-    "👶 Лео (Малыш)": 1000,
-    "🏥 Здоровье": 350,
-    "🚗 Машина": 256,
-    "👧 Арина": 100,
-    "👦 Натан": 100,
-}
+# Инициализация данных (чтобы они не стирались при обновлении страницы)
+if 'budget' not in st.session_state:
+    st.session_state.budget = {
+        "🛒 Продукты и Хозтовары": {"limit": 4000, "spent": 0},
+        "📚 Дополнительные уроки": {"limit": 2254, "spent": 0},
+        "🏋️ Спорт и Секции": {"limit": 1000, "spent": 0},
+        "👶 Лео (Малыш)": {"limit": 1000, "spent": 0},
+        "🏥 Здоровье и Аптека": {"limit": 500, "spent": 0},
+        "🚗 Машина (Бензин)": {"limit": 350, "spent": 0},
+        "👧 Арина (Личное)": {"limit": 100, "spent": 0},
+        "👦 Натан (Личное)": {"limit": 100, "spent": 0},
+        "🎮 Досуг и мелочи": {"limit": 40, "spent": 0},
+    }
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
-# Тут храним траты (в реальной базе лучше хранить в файле)
-spent = {cat: 0 for cat in categories}
-history = []
+# Заголовок
+st.title("💳 Мой Макс-Бюджет")
+st.write("Твоё личное приложение для контроля расходов.")
 
-# Обязательные платежи (для инфо)
-FIXED = "🏠 Машканта: 5700\n💳 Кредиты: 2540\n📑 Счета: 1200"
+# Блок 1: Обязательные платежи
+st.header("🔒 Обязательные платежи (Фикс)")
+st.info("""
+**Списываются автоматически:**
+* 🏠 **Машканта:** 5 700 ₪
+* 💳 **Кредиты:** 2 540 ₪
+* ⚡ **Счета и Связь:** 916 ₪
+---
+**Итого заблокировано:** 9 156 ₪
+""")
 
-def get_status_emoji(current, limit):
-    percent = (current / limit) * 100
-    if percent < 50: return "🟢"
-    if percent < 85: return "🟡"
-    return "🔴"
+# Блок 2: Твои конверты со Светофором
+st.header("📂 Мои конверты")
 
-def main_markup():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add("📊 Состояние", "➕ Внести расход")
-    markup.add("🔄 Перевод", "📜 История")
-    return markup
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(message.chat.id, "Привет, Ира! Твой Max-Бюджет запущен. 💎", reply_markup=main_markup())
-
-@bot.message_handler(func=lambda m: m.text == "📊 Состояние")
-def status(message):
-    res = "💳 **ВАШИ КОНВЕРТЫ (АПРЕЛЬ)**\n\n"
-    res += f"🔒 **ОБЯЗАТЕЛЬНЫЕ:**\n{FIXED}\n"
-    res += "----------------------------------\n"
+for cat, data in st.session_state.budget.items():
+    limit = data['limit']
+    spent = data['spent']
     
-    for cat, limit in categories.items():
-        curr = spent[cat]
-        emoji = get_status_emoji(curr, limit)
-        bar_len = 10
-        filled = int((curr / limit) * bar_len) if limit > 0 else 0
-        bar = "█" * min(filled, bar_len) + "░" * max(0, bar_length := (bar_len - filled))
-        res += f"{emoji} **{cat}**\n`{bar}` {curr}/{limit} ₪\n"
+    # Считаем процент
+    percent = (spent / limit) * 100 if limit > 0 else 0
     
-    bot.send_message(message.chat.id, res, parse_mode="Markdown")
-
-@bot.message_handler(func=lambda m: m.text == "➕ Внести расход")
-def add_expense(message):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in categories.keys():
-        markup.add(types.InlineKeyboardButton(cat, callback_data=f"exp_{cat}"))
-    bot.send_message(message.chat.id, "Куда тратим?", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("exp_"))
-def ask_amount(call):
-    cat = call.data.split("_")[1]
-    msg = bot.send_message(call.message.chat.id, f"Сколько внести в **{cat}**?")
-    bot.register_next_step_handler(msg, save_exp, cat)
-
-def save_exp(message, cat):
-    try:
-        val = float(message.text.replace(',', '.'))
-        spent[cat] += val
-        history.append(f"➖ {cat}: {val} ₪")
-        bot.send_message(message.chat.id, f"✅ Записала {val} ₪ в {cat}")
-    except:
-        bot.send_message(message.chat.id, "❌ Нужны только цифры!")
-
-@bot.message_handler(func=lambda m: m.text == "🔄 Перевод")
-def transfer_start(message):
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for cat in categories.keys():
-        markup.add(types.InlineKeyboardButton(f"Из {cat}", callback_data=f"from_{cat}"))
-    bot.send_message(message.chat.id, "Откуда заберем деньги?", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("from_"))
-def transfer_to(call):
-    source = call.data.split("_")[1]
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for cat in categories.keys():
-        if cat != source:
-            markup.add(types.InlineKeyboardButton(f"В {cat}", callback_data=f"to_{source}_{cat}"))
-    bot.edit_message_text(f"Забираем из {source}. Куда переложить?", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("to_"))
-def transfer_amount(call):
-    _, source, target = call.data.split("_")
-    msg = bot.send_message(call.message.chat.id, f"Сколько перенести из {source} в {target}?")
-    bot.register_next_step_handler(msg, finish_transfer, source, target)
-
-def finish_transfer(message, src, tgt):
-    try:
-        val = float(message.text.replace(',', '.'))
-        categories[src] -= val
-        categories[tgt] += val
-        bot.send_message(message.chat.id, f"✅ Перевела {val} ₪. Лимит {tgt} увеличен!")
-    except:
-        bot.send_message(message.chat.id, "❌ Ошибка в сумме.")
-
-@bot.message_handler(func=lambda m: m.text == "📜 История")
-def show_hist(message):
-    if not history:
-        bot.send_message(message.chat.id, "История пока пуста.")
+    # Логика "Светофора"
+    if percent < 50:
+        color_emoji = "🟢"
+    elif percent < 85:
+        color_emoji = "🟡"
     else:
-        bot.send_message(message.chat.id, "\n".join(history[-10:]))
+        color_emoji = "🔴"
+        
+    # Вывод категории
+    st.subheader(f"{color_emoji} {cat}")
+    st.write(f"Потрачено: **{spent}** ₪ из **{limit}** ₪")
+    
+    # Визуальный градусник (Streamlit progress bar)
+    progress_val = min(percent / 100, 1.0)
+    st.progress(progress_val)
 
-bot.infinity_polling()
+st.divider()
+
+# Блок 3: Внесение трат и переводы
+st.header("🛠 Управление бюджетом")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("➕ Внести расход")
+    expense_cat = st.selectbox("Куда потратили?", list(st.session_state.budget.keys()), key="exp_cat")
+    expense_amount = st.number_input("Сумма (₪)", min_value=0.0, step=10.0, key="exp_amt")
+    if st.button("Записать трату"):
+        if expense_amount > 0:
+            st.session_state.budget[expense_cat]['spent'] += expense_amount
+            st.session_state.history.insert(0, f"➖ {expense_amount} ₪ ({expense_cat})")
+            st.rerun()
+
+with col2:
+    st.subheader("🔄 Перевод между папками")
+    from_cat = st.selectbox("Откуда забрать?", list(st.session_state.budget.keys()), key="from_cat")
+    to_cat = st.selectbox("Куда добавить?", list(st.session_state.budget.keys()), key="to_cat")
+    transfer_amount = st.number_input("Сумма перевода (₪)", min_value=0.0, step=10.0, key="trans_amt")
+    if st.button("Перевести"):
+        if transfer_amount > 0 and from_cat != to_cat:
+            st.session_state.budget[from_cat]['limit'] -= transfer_amount
+            st.session_state.budget[to_cat]['limit'] += transfer_amount
+            st.session_state.history.insert(0, f"🔄 {transfer_amount} ₪ из {from_cat} в {to_cat}")
+            st.rerun()
+
+st.divider()
+
+# Блок 4: История операций
+st.header("📜 История операций")
+if st.session_state.history:
+    for item in st.session_state.history[:10]: # Показываем последние 10
+        st.write(item)
+else:
+    st.write("Пока пусто. Сделай первую запись!")
