@@ -2,7 +2,8 @@ import streamlit as st
 import datetime
 import requests
 
-SHEET_URL = "https://script.google.com/macros/s/AKfycbxkvxn-l1zlwpsXV7EsiuOr1xoFQCThBk6KFbeaIUzD7reCD2zoLMo2hdbpKmizEWxf/exec"
+# ТВОЯ НОВАЯ ССЫЛКА
+SHEET_URL = "https://script.google.com/macros/s/AKfycbyrvgESsKjWIaw0gVohS3reEOV_kvinEoEQpbC09Fnihq-fn88FigvDJWdW8tGa2TmA/exec"
 
 st.set_page_config(page_title="Выход в Ноль", layout="centered")
 
@@ -28,7 +29,6 @@ st.markdown("""
     .cat-amount { color: #2D3142; font-size: 30px; font-weight: 800; margin-bottom: 15px; }
     .progress-track { width: 100%; height: 6px; background: #F2F2F7; border-radius: 3px; }
     .progress-fill { height: 100%; border-radius: 3px; }
-    .stButton>button { background: #2D3142 !important; color: white !important; border-radius: 20px !important; height: 60px; font-size: 18px; font-weight: 700; width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
