@@ -7,7 +7,7 @@ SHEET_URL = "https://script.google.com/macros/s/AKfycbyrvgESsKjWIaw0gVohS3reEOV_
 
 st.set_page_config(page_title="Выход в Ноль", layout="centered")
 
-# ТОЧНЫЕ ЦВЕТА С ТВОИХ СКРИНШОТОВ (Нежный фон + яркий кружок)
+# ТОЧНЫЕ ЦВЕТА
 CATEGORIES = {
     "Продукты": {"limit": 4000, "icon": "🛒", "icon_bg": "#FFB74D", "card_bg": "#FFF8E1"}, 
     "Машина": {"limit": 500, "icon": "🚗", "icon_bg": "#64B5F6", "card_bg": "#E3F2FD"}, 
@@ -39,7 +39,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# УБРАЛ КЭШ ПОЛНОСТЬЮ, ЧТОБЫ ДАННЫЕ ИЗ ТАБЛИЦЫ ОБНОВЛЯЛИСЬ МГНОВЕННО
 def load_data():
     try:
         r = requests.get(SHEET_URL, timeout=10)
@@ -50,12 +49,20 @@ data = load_data()
 spent_dict = data.get("spent", {})
 history = data.get("history", [])
 
+# === МАГИЯ АВТОМАТИЧЕСКОГО ПЕРЕНОСА ОСТАТКОВ ===
+now = datetime.datetime.now()
+# Считаем, сколько месяцев мы уже пользуемся приложением (Март 2026 = 1 месяц, Апрель = 2 и т.д.)
+months_passed = (now.year - 2026) * 12 + (now.month - 3) + 1
+if months_passed < 1: 
+    months_passed = 1
+
 total_spent = sum(spent_dict.values())
-total_limit = sum(c['limit'] for c in CATEGORIES.values())
+# Увеличиваем общий виртуальный лимит на количество прошедших месяцев
+total_limit = sum(c['limit'] * months_passed for c in CATEGORIES.values())
 total_left = total_limit - total_spent
 
 # 1. ГЛАВНЫЙ ВИДЖЕТ
-st.markdown(f'<div class="hero-widget"><div style="font-size:14px; font-weight:700; color:#8E8E93;">{datetime.datetime.now().strftime("%d.%m.%Y")}</div><div style="font-size:48px; font-weight:800; color:#2D3142;">{int(total_left)} ₪</div><div style="color:#34D399; font-weight:700; font-size:14px;">ОСТАТОК В КОНВЕРТАХ</div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="hero-widget"><div style="font-size:14px; font-weight:700; color:#8E8E93;">{now.strftime("%d.%m.%Y")}</div><div style="font-size:48px; font-weight:800; color:#2D3142;">{int(total_left)} ₪</div><div style="color:#34D399; font-weight:700; font-size:14px;">ОСТАТОК В КОНВЕРТАХ</div></div>', unsafe_allow_html=True)
 
 # 2. ФОРМА ВВОДА
 with st.form("add_transaction", clear_on_submit=True):
@@ -70,10 +77,13 @@ with st.form("add_transaction", clear_on_submit=True):
 cols = st.columns(2)
 for i, (name, info) in enumerate(CATEGORIES.items()):
     spent = spent_dict.get(name, 0)
-    current_val = info['limit'] - spent
+    
+    # Считаем остаток конкретного конверта за все время
+    current_val = (info['limit'] * months_passed) - spent
+    
+    # Процент для шкалы (считаем от месячного лимита, чтобы визуально было понятно)
     pct = max(0, min(1, current_val / info['limit'])) if info['limit'] > 0 else 0
     
-    # ЛОГИКА ТРЕВОГИ: Если 10% или меньше - горим красным!
     if current_val < 0 or pct <= 0.10:
         card_bg = "#FFEBEB"
         icon_bg = "#FF5252"
