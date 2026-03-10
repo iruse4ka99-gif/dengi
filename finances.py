@@ -39,13 +39,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ЛОГИКА СВЕТОФОРА
-def get_traffic_light_color(pct):
-    if pct > 0.20: return "#34D399" 
-    if pct > 0.0: return "#FF9F0A"  
-    return "#FF3B30"                
-
-@st.cache_data(ttl=0)
+# УБРАЛ КЭШ ПОЛНОСТЬЮ, ЧТОБЫ ДАННЫЕ ИЗ ТАБЛИЦЫ ОБНОВЛЯЛИСЬ МГНОВЕННО
 def load_data():
     try:
         r = requests.get(SHEET_URL, timeout=10)
@@ -70,41 +64,36 @@ with st.form("add_transaction", clear_on_submit=True):
     amt = st.number_input("Сколько?", min_value=0, step=1, value=None, placeholder="₪")
     if st.form_submit_button("ВНЕСТИ ТРАТУ") and amt:
         requests.post(SHEET_URL, json={"category": cat, "amount": amt})
-        st.cache_data.clear()
         st.rerun()
 
-# 3. СЕТКА КОНВЕРТОВ
+# 3. СЕТКА КОНВЕРТОВ С ДИНАМИЧЕСКИМИ ЦВЕТАМИ
 cols = st.columns(2)
 for i, (name, info) in enumerate(CATEGORIES.items()):
     spent = spent_dict.get(name, 0)
     current_val = info['limit'] - spent
     pct = max(0, min(1, current_val / info['limit'])) if info['limit'] > 0 else 0
     
-    bar_color = get_traffic_light_color(pct)
-    card_bg = info['card_bg']
-    icon_bg = info['icon_bg']
-    text_color = "#2D3142"
-    
-    # Режим "Тревога"
-    if current_val < 0:
+    # ЛОГИКА ТРЕВОГИ: Если 10% или меньше - горим красным!
+    if current_val < 0 or pct <= 0.10:
         card_bg = "#FFEBEB"
         icon_bg = "#FF5252"
         text_color = "#FF5252"
-    elif pct <= 0.20:
+        bar_color = "#FF5252"
+    elif pct <= 0.30:
         card_bg = "#FFF8E1"
         icon_bg = "#FFB300"
+        text_color = "#2D3142"
+        bar_color = "#FFB300"
+    else:
+        card_bg = info['card_bg']
+        icon_bg = info['icon_bg']
+        text_color = "#2D3142"
+        bar_color = "#34D399"
     
-    html_card = f"""
-    <div class="budget-card" style="background-color:{card_bg};">
-        <div style="width:52px; height:52px; border-radius:50%; background:{icon_bg}; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">{info['icon']}</div>
-        <div class="cat-name">{name}</div>
-        <div class="cat-amount" style="color:{text_color};">{int(current_val)}</div>
-        <div style="width:100%; text-align:right; font-size:12px; font-weight:700; color:#8E8E93; opacity:0.6; margin-bottom:4px; letter-spacing:0.5px;">{int(pct*100)}%</div>
-        <div class="progress-track"><div class="progress-fill" style="width:{int(pct*100)}%; background-color:{bar_color};"></div></div>
-    </div>
-    """
+    html_card = f'<div class="budget-card" style="background-color:{card_bg};"><div style="width:52px; height:52px; border-radius:50%; background:{icon_bg}; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">{info["icon"]}</div><div class="cat-name">{name}</div><div class="cat-amount" style="color:{text_color};">{int(current_val)}</div><div style="width:100%; text-align:right; font-size:12px; font-weight:700; color:#8E8E93; opacity:0.6; margin-bottom:4px; letter-spacing:0.5px;">{int(pct*100)}%</div><div class="progress-track"><div class="progress-fill" style="width:{int(pct*100)}%; background-color:{bar_color};"></div></div></div>'
+    
     with cols[i % 2]:
-        st.markdown(html_card.replace('\n', ''), unsafe_allow_html=True)
+        st.markdown(html_card, unsafe_allow_html=True)
 
 # 4. ИСТОРИЯ
 if history:
