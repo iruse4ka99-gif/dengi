@@ -171,4 +171,10 @@ elif st.session_state.page == "history":
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. BOTTOM NAV BAR ---
-c1
+c1, c2, c3 = st.columns(3)
+with c1:
+    if st.button("💎 Кошелёк", use_container_width=True): st.session_state.page = "wallet"; st.rerun()
+with c2:
+    if st.button("🔁 Перевод", use_container_width=True): st.session_state.page = "transfer"; st.rerun()
+with c3:
+    if st.button("📜 История", use_container_width=True): st.session_state.page = "history"; st.rerun()
