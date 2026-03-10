@@ -29,6 +29,7 @@ st.markdown("""
     [data-testid="stForm"] { background: #FFFFFF; border-radius: 20px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid #E5E5EA; margin-bottom: 20px;}
     
     .budget-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #E5E5EA; display: flex; flex-direction: column; align-items: center; }
+    
     .cat-name { color: #8E8E93; font-size: 13px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; }
     .cat-amount { color: #2D3142; font-size: 28px; font-weight: 800; margin-bottom: 8px; }
     
@@ -63,7 +64,7 @@ total_left = total_limit - total_spent
 # 1. ГЛАВНЫЙ ВИДЖЕТ
 st.markdown(f'<div class="hero-widget"><div style="font-size:14px; font-weight:700; color:#8E8E93;">{datetime.datetime.now().strftime("%d.%m.%Y")}</div><div style="font-size:48px; font-weight:800; color:#2D3142;">{int(total_left)} ₪</div><div style="color:#34D399; font-weight:700; font-size:14px;">ОСТАТОК В КОНВЕРТАХ</div></div>', unsafe_allow_html=True)
 
-# 2. ФОРМА ВВОДА (НАВЕРХУ)
+# 2. ФОРМА ВВОДА
 with st.form("add_transaction", clear_on_submit=True):
     st.markdown('<div style="font-size:14px; font-weight:800; color:#8E8E93; text-transform:uppercase; margin-bottom:10px; text-align:center;">Быстрое внесение</div>', unsafe_allow_html=True)
     cat = st.selectbox("Куда тратим?", list(CATEGORIES.keys()))
@@ -73,7 +74,7 @@ with st.form("add_transaction", clear_on_submit=True):
         st.cache_data.clear()
         st.rerun()
 
-# 3. СЕТКА КОНВЕРТОВ (С ПРОЦЕНТАМИ)
+# 3. СЕТКА КОНВЕРТОВ С ПРОЦЕНТАМИ
 cols = st.columns(2)
 for i, (name, info) in enumerate(CATEGORIES.items()):
     spent = spent_dict.get(name, 0)
@@ -83,22 +84,17 @@ for i, (name, info) in enumerate(CATEGORIES.items()):
     bar_color = get_traffic_light_color(pct)
     text_color = "#FF3B30" if current_val < 0 else "#2D3142"
     
-    # Тот самый полупрозрачный процент
-    pct_text = f"{int(pct * 100)}%"
-    
-    with cols[i % 2]:
-        st.markdown(f"""
-            <div class="budget-card">
-                <div style="width:52px; height:52px; border-radius:50%; background:{info['bg']}; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">{info['icon']}</div>
-                <div class="cat-name">{name}</div>
-                <div class="cat-amount" style="color:{text_color};">{int(current_val)}</div>
-                
-                <div style="width: 100%;">
-                    <div style="text-align: right; font-size: 10px; color: #8E8E93; opacity: 0.6; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">{pct_text}</div>
-                    <div class="progress-track"><div class="progress-fill" style="width:{int(pct*100)}%; background-color:{bar_color};"></div></div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+    # Вот здесь магия защиты: весь HTML собирается как текст, а потом убираются все лишние переносы, чтобы ничего не вылезало наружу
+    html_card = f"""
+    <div class="budget-card">
+        <div style="width:52px; height:52px; border-radius:50%; background:{info['bg']}; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">{info['icon']}</div>
+        <div class="cat-name">{name}</div>
+        <div class="cat-amount" style="color:{text_color};">{int(current_val)}</div>
+        <div style="width:100%; text-align:right; font-size:12px; font-weight:700; color:#8E8E93; opacity:0.6; margin-bottom:4px; letter-spacing:0.5px;">{int(pct*100)}%</div>
+        <div class="progress-track"><div class="progress-fill" style="width:{int(pct*100)}%; background-color:{bar_color};"></div></div>
+    </div>
+    """
+    st.markdown(html_card.replace('\n', ''), unsafe_allow_html=True)
 
 # 4. ИСТОРИЯ
 if history:
