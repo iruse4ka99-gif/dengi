@@ -1,9 +1,17 @@
 import streamlit as st
 
-# Настройка страницы
-st.set_page_config(page_title="Ира: Макс-Бюджет", page_icon="💎", layout="centered")
+# Настройка страницы (компактный вид)
+st.set_page_config(page_title="Макс-Бюджет", page_icon="💎", layout="centered")
 
-# Инициализация данных (чтобы они не стирались при обновлении страницы)
+# Убираем лишние отступы и делаем шрифт крупнее
+st.markdown("""
+    <style>
+    .stNumberInput input { font-size: 20px !important; font-weight: bold; }
+    div[data-baseweb="select"] { font-size: 18px !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+# Инициализация твоих конвертов
 if 'budget' not in st.session_state:
     st.session_state.budget = {
         "🛒 Продукты и Хозтовары": {"limit": 4000, "spent": 0},
@@ -19,82 +27,58 @@ if 'budget' not in st.session_state:
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# Заголовок
-st.title("💳 Мой Макс-Бюджет")
-st.write("Твоё личное приложение для контроля расходов.")
+st.title("💎 Мой Макс-Бюджет")
 
-# Блок 1: Обязательные платежи
-st.header("🔒 Обязательные платежи (Фикс)")
-st.info("""
-**Списываются автоматически:**
-* 🏠 **Машканта:** 5 700 ₪
-* 💳 **Кредиты:** 2 540 ₪
-* ⚡ **Счета и Связь:** 916 ₪
----
-**Итого заблокировано:** 9 156 ₪
-""")
+# --- БЛОК 1: БЫСТРАЯ ЗАПИСЬ (НА САМОМ ВЕРХУ) ---
+st.subheader("⚡ Внести расход")
 
-# Блок 2: Твои конверты со Светофором
-st.header("📂 Мои конверты")
+# format="%d" гарантирует, что не будет никаких .00
+col1, col2 = st.columns([2, 1])
+with col1:
+    expense_cat = st.selectbox("Категория", list(st.session_state.budget.keys()), label_visibility="collapsed")
+with col2:
+    expense_amount = st.number_input("Сумма (₪)", min_value=0, step=10, format="%d", value=0, label_visibility="collapsed")
+
+if st.button("➕ Записать трату", use_container_width=True):
+    if expense_amount > 0:
+        st.session_state.budget[expense_cat]['spent'] += expense_amount
+        st.session_state.history.insert(0, f"✅ {expense_cat}: потрачено {expense_amount} ₪")
+        st.rerun()
+
+st.divider()
+
+# --- БЛОК 2: ТВОИ КОНВЕРТЫ (СВЕТОФОР) ---
+st.subheader("📂 Мои конверты")
 
 for cat, data in st.session_state.budget.items():
     limit = data['limit']
     spent = data['spent']
+    percent = int((spent / limit) * 100) if limit > 0 else 0
     
-    # Считаем процент
-    percent = (spent / limit) * 100 if limit > 0 else 0
-    
-    # Логика "Светофора"
-    if percent < 50:
-        color_emoji = "🟢"
-    elif percent < 85:
-        color_emoji = "🟡"
-    else:
-        color_emoji = "🔴"
+    if percent < 50: emoji = "🟢"
+    elif percent < 85: emoji = "🟡"
+    else: emoji = "🔴"
         
-    # Вывод категории
-    st.subheader(f"{color_emoji} {cat}")
-    st.write(f"Потрачено: **{spent}** ₪ из **{limit}** ₪")
-    
-    # Визуальный градусник (Streamlit progress bar)
-    progress_val = min(percent / 100, 1.0)
-    st.progress(progress_val)
+    st.markdown(f"**{emoji} {cat}**")
+    st.progress(min(percent / 100, 1.0))
+    st.caption(f"Потрачено: **{spent}** из {limit} ₪")
 
 st.divider()
 
-# Блок 3: Внесение трат и переводы
-st.header("🛠 Управление бюджетом")
+# --- БЛОК 3: СПРЯТАННАЯ ИНФОРМАЦИЯ ---
+col_a, col_b = st.columns(2)
 
-col1, col2 = st.columns(2)
+with col_a:
+    with st.expander("🔒 Обязательные платежи"):
+        st.write("**Всего: 9 156 ₪**")
+        st.write("🏠 Машканта: 5 700")
+        st.write("💳 Кредиты: 2 540")
+        st.write("⚡ Счета: 916")
 
-with col1:
-    st.subheader("➕ Внести расход")
-    expense_cat = st.selectbox("Куда потратили?", list(st.session_state.budget.keys()), key="exp_cat")
-    expense_amount = st.number_input("Сумма (₪)", min_value=0.0, step=10.0, key="exp_amt")
-    if st.button("Записать трату"):
-        if expense_amount > 0:
-            st.session_state.budget[expense_cat]['spent'] += expense_amount
-            st.session_state.history.insert(0, f"➖ {expense_amount} ₪ ({expense_cat})")
-            st.rerun()
-
-with col2:
-    st.subheader("🔄 Перевод между папками")
-    from_cat = st.selectbox("Откуда забрать?", list(st.session_state.budget.keys()), key="from_cat")
-    to_cat = st.selectbox("Куда добавить?", list(st.session_state.budget.keys()), key="to_cat")
-    transfer_amount = st.number_input("Сумма перевода (₪)", min_value=0.0, step=10.0, key="trans_amt")
-    if st.button("Перевести"):
-        if transfer_amount > 0 and from_cat != to_cat:
-            st.session_state.budget[from_cat]['limit'] -= transfer_amount
-            st.session_state.budget[to_cat]['limit'] += transfer_amount
-            st.session_state.history.insert(0, f"🔄 {transfer_amount} ₪ из {from_cat} в {to_cat}")
-            st.rerun()
-
-st.divider()
-
-# Блок 4: История операций
-st.header("📜 История операций")
-if st.session_state.history:
-    for item in st.session_state.history[:10]: # Показываем последние 10
-        st.write(item)
-else:
-    st.write("Пока пусто. Сделай первую запись!")
+with col_b:
+    with st.expander("📝 История операций"):
+        if st.session_state.history:
+            for item in st.session_state.history[:10]:
+                st.write(item)
+        else:
+            st.write("Пока пусто.")
