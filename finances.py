@@ -1,84 +1,96 @@
 import streamlit as st
 
-# Настройка страницы (компактный вид)
-st.set_page_config(page_title="Макс-Бюджет", page_icon="💎", layout="centered")
+st.set_page_config(page_title="Мой Бюджет", page_icon="💎", layout="centered")
 
-# Убираем лишние отступы и делаем шрифт крупнее
+# Убиваем стандартный скучный дизайн Streamlit и делаем красиво
 st.markdown("""
     <style>
-    .stNumberInput input { font-size: 20px !important; font-weight: bold; }
-    div[data-baseweb="select"] { font-size: 18px !important; }
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    .block-container {padding-top: 2rem; padding-bottom: 0rem; max-width: 600px;}
+    
+    /* Делаем поле ввода суммы огромным и удобным (никаких лишних нулей) */
+    .stNumberInput input {
+        font-size: 22px !important;
+        font-weight: bold !important;
+        border-radius: 10px !important;
+    }
+    .stSelectbox div[data-baseweb="select"] {
+        font-size: 18px !important;
+        border-radius: 10px !important;
+        font-weight: bold !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Инициализация твоих конвертов
+# База данных (только целые числа, никаких дробей!)
 if 'budget' not in st.session_state:
     st.session_state.budget = {
-        "🛒 Продукты и Хозтовары": {"limit": 4000, "spent": 0},
-        "📚 Дополнительные уроки": {"limit": 2254, "spent": 0},
+        "🛒 Продукты": {"limit": 4000, "spent": 0},
+        "📚 Доп. уроки": {"limit": 2254, "spent": 0},
         "🏋️ Спорт и Секции": {"limit": 1000, "spent": 0},
         "👶 Лео (Малыш)": {"limit": 1000, "spent": 0},
-        "🏥 Здоровье и Аптека": {"limit": 500, "spent": 0},
-        "🚗 Машина (Бензин)": {"limit": 350, "spent": 0},
-        "👧 Арина (Личное)": {"limit": 100, "spent": 0},
-        "👦 Натан (Личное)": {"limit": 100, "spent": 0},
-        "🎮 Досуг и мелочи": {"limit": 40, "spent": 0},
+        "🏥 Здоровье": {"limit": 500, "spent": 0},
+        "🚗 Машина": {"limit": 350, "spent": 0},
+        "👧 Арина": {"limit": 100, "spent": 0},
+        "👦 Натан": {"limit": 100, "spent": 0},
+        "🎮 Досуг": {"limit": 40, "spent": 0},
     }
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-st.title("💎 Мой Макс-Бюджет")
+st.markdown("<h2 style='text-align: center; color: #1f2937; margin-bottom: 20px;'>💎 Мой Бюджет</h2>", unsafe_allow_html=True)
 
-# --- БЛОК 1: БЫСТРАЯ ЗАПИСЬ (НА САМОМ ВЕРХУ) ---
-st.subheader("⚡ Внести расход")
-
-# format="%d" гарантирует, что не будет никаких .00
+# --- БЛОК 1: БЫСТРЫЙ ВВОД ---
+st.markdown("<h4 style='color: #4b5563; margin-bottom: 10px;'>⚡ Внести расход</h4>", unsafe_allow_html=True)
 col1, col2 = st.columns([2, 1])
-with col1:
-    expense_cat = st.selectbox("Категория", list(st.session_state.budget.keys()), label_visibility="collapsed")
-with col2:
-    expense_amount = st.number_input("Сумма (₪)", min_value=0, step=10, format="%d", value=0, label_visibility="collapsed")
 
-if st.button("➕ Записать трату", use_container_width=True):
-    if expense_amount > 0:
-        st.session_state.budget[expense_cat]['spent'] += expense_amount
-        st.session_state.history.insert(0, f"✅ {expense_cat}: потрачено {expense_amount} ₪")
+with col1:
+    cat = st.selectbox("Категория", list(st.session_state.budget.keys()), label_visibility="collapsed")
+with col2:
+    # format="%d" и step=10 гарантируют, что будут только целые числа
+    amt = st.number_input("Сумма", min_value=0, step=10, format="%d", value=0, label_visibility="collapsed")
+
+if st.button("➕ ДОБАВИТЬ ТРАТУ", use_container_width=True):
+    if amt > 0:
+        st.session_state.budget[cat]['spent'] += int(amt)
+        st.session_state.history.insert(0, f"✅ {cat}: потрачено {int(amt)} ₪")
         st.rerun()
 
-st.divider()
+st.markdown("<br>", unsafe_allow_html=True)
 
-# --- БЛОК 2: ТВОИ КОНВЕРТЫ (СВЕТОФОР) ---
-st.subheader("📂 Мои конверты")
-
-for cat, data in st.session_state.budget.items():
-    limit = data['limit']
-    spent = data['spent']
-    percent = int((spent / limit) * 100) if limit > 0 else 0
+# --- БЛОК 2: КРАСИВЫЕ КАРТОЧКИ (КАК НА ТВОЕМ СКРИНЕ) ---
+for name, data in st.session_state.budget.items():
+    limit = int(data['limit'])
+    spent = int(data['spent'])
+    remain = limit - spent
     
-    if percent < 50: emoji = "🟢"
-    elif percent < 85: emoji = "🟡"
-    else: emoji = "🔴"
+    # Логика цветов: Зеленый -> Желтый -> Красный
+    if remain > (limit * 0.2):
+        bg_color = "#f0fdf4" # светло-зеленый фон
+        border_color = "#4ade80" # зеленая полоска
+        text_color = "#166534"
+    elif remain >= 0:
+        bg_color = "#fefce8" # светло-желтый фон
+        border_color = "#facc15" # желтая полоска
+        text_color = "#854d0e"
+    else:
+        bg_color = "#fef2f2" # светло-красный фон
+        border_color = "#f87171" # красная полоска
+        text_color = "#991b1b"
         
-    st.markdown(f"**{emoji} {cat}**")
-    st.progress(min(percent / 100, 1.0))
-    st.caption(f"Потрачено: **{spent}** из {limit} ₪")
-
-st.divider()
-
-# --- БЛОК 3: СПРЯТАННАЯ ИНФОРМАЦИЯ ---
-col_a, col_b = st.columns(2)
-
-with col_a:
-    with st.expander("🔒 Обязательные платежи"):
-        st.write("**Всего: 9 156 ₪**")
-        st.write("🏠 Машканта: 5 700")
-        st.write("💳 Кредиты: 2 540")
-        st.write("⚡ Счета: 916")
-
-with col_b:
-    with st.expander("📝 История операций"):
-        if st.session_state.history:
-            for item in st.session_state.history[:10]:
-                st.write(item)
-        else:
-            st.write("Пока пусто.")
+    # Рисуем саму карточку HTML-кодом
+    card_html = f"""
+    <div style="
+        background-color: {bg_color}; 
+        padding: 15px 20px; 
+        border-radius: 12px; 
+        margin-bottom: 12px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        border-bottom: 4px solid {border_color};
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    ">
+        <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 18px; font-
