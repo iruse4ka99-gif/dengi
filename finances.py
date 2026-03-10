@@ -25,7 +25,7 @@ st.markdown("""
     html, body, [class*="stApp"] { background-color: #FDFBF7 !important; }
     
     .hero-widget { background: #FFFFFF; border-radius: 24px; padding: 25px; text-align: center; box-shadow: 0 8px 20px rgba(0,0,0,0.04); margin-bottom: 15px; }
-    [data-testid="stForm"] { background: #FFFFFF; border-radius: 20px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); margin-bottom: 20px;}
+    [data-testid="stForm"] { background: #FFFFFF; border-radius: 20px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); margin-bottom: 12px;}
     
     .budget-card { border-radius: 20px; padding: 18px; margin-bottom: 12px; display: flex; flex-direction: column; align-items: center; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.02);}
     
@@ -49,22 +49,19 @@ data = load_data()
 spent_dict = data.get("spent", {})
 history = data.get("history", [])
 
-# === МАГИЯ АВТОМАТИЧЕСКОГО ПЕРЕНОСА ОСТАТКОВ ===
 now = datetime.datetime.now()
-# Считаем, сколько месяцев мы уже пользуемся приложением (Март 2026 = 1 месяц, Апрель = 2 и т.д.)
 months_passed = (now.year - 2026) * 12 + (now.month - 3) + 1
 if months_passed < 1: 
     months_passed = 1
 
 total_spent = sum(spent_dict.values())
-# Увеличиваем общий виртуальный лимит на количество прошедших месяцев
 total_limit = sum(c['limit'] * months_passed for c in CATEGORIES.values())
 total_left = total_limit - total_spent
 
 # 1. ГЛАВНЫЙ ВИДЖЕТ
 st.markdown(f'<div class="hero-widget"><div style="font-size:14px; font-weight:700; color:#8E8E93;">{now.strftime("%d.%m.%Y")}</div><div style="font-size:48px; font-weight:800; color:#2D3142;">{int(total_left)} ₪</div><div style="color:#34D399; font-weight:700; font-size:14px;">ОСТАТОК В КОНВЕРТАХ</div></div>', unsafe_allow_html=True)
 
-# 2. ФОРМА ВВОДА
+# 2. ФОРМА ВВОДА ТРАТ
 with st.form("add_transaction", clear_on_submit=True):
     st.markdown('<div style="font-size:14px; font-weight:800; color:#8E8E93; text-transform:uppercase; margin-bottom:10px; text-align:center;">Быстрое внесение</div>', unsafe_allow_html=True)
     cat = st.selectbox("Куда тратим?", list(CATEGORIES.keys()))
@@ -73,15 +70,29 @@ with st.form("add_transaction", clear_on_submit=True):
         requests.post(SHEET_URL, json={"category": cat, "amount": amt})
         st.rerun()
 
-# 3. СЕТКА КОНВЕРТОВ С ДИНАМИЧЕСКИМИ ЦВЕТАМИ
+# 2.5 ФОРМА ПЕРЕВОДОВ (Спрятана в панель, чтобы не занимать место)
+with st.expander("🔄 ПЕРЕВОД МЕЖДУ КОНВЕРТАМИ"):
+    with st.form("transfer_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            cat_from = st.selectbox("Откуда забираем?", list(CATEGORIES.keys()), index=5) # По умолчанию стоят "Доп. уроки"
+        with col2:
+            cat_to = st.selectbox("Куда добавляем?", list(CATEGORIES.keys()), index=0) # По умолчанию "Продукты"
+        
+        transfer_amt = st.number_input("Сумма перевода", min_value=1, step=1, value=None, placeholder="₪")
+        if st.form_submit_button("СДЕЛАТЬ ПЕРЕВОД") and transfer_amt:
+            if cat_from != cat_to:
+                # 1. Забираем деньги (записываем как трату)
+                requests.post(SHEET_URL, json={"category": cat_from, "amount": transfer_amt})
+                # 2. Добавляем деньги (записываем как возврат, с минусом)
+                requests.post(SHEET_URL, json={"category": cat_to, "amount": -transfer_amt})
+                st.rerun()
+
+# 3. СЕТКА КОНВЕРТОВ
 cols = st.columns(2)
 for i, (name, info) in enumerate(CATEGORIES.items()):
     spent = spent_dict.get(name, 0)
-    
-    # Считаем остаток конкретного конверта за все время
     current_val = (info['limit'] * months_passed) - spent
-    
-    # Процент для шкалы (считаем от месячного лимита, чтобы визуально было понятно)
     pct = max(0, min(1, current_val / info['limit'])) if info['limit'] > 0 else 0
     
     if current_val < 0 or pct <= 0.10:
