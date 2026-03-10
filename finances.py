@@ -7,7 +7,7 @@ SHEET_URL = "https://script.google.com/macros/s/AKfycbyrvgESsKjWIaw0gVohS3reEOV_
 
 st.set_page_config(page_title="Выход в Ноль", layout="centered")
 
-# ТОЧНЫЕ ЦВЕТА
+# ТОЧНЫЕ ЦВЕТА С ТВОИХ СКРИНШОТОВ
 CATEGORIES = {
     "Продукты": {"limit": 4000, "icon": "🛒", "icon_bg": "#FFB74D", "card_bg": "#FFF8E1"}, 
     "Машина": {"limit": 500, "icon": "🚗", "icon_bg": "#64B5F6", "card_bg": "#E3F2FD"}, 
@@ -51,8 +51,7 @@ history = data.get("history", [])
 
 now = datetime.datetime.now()
 months_passed = (now.year - 2026) * 12 + (now.month - 3) + 1
-if months_passed < 1: 
-    months_passed = 1
+if months_passed < 1: months_passed = 1
 
 total_spent = sum(spent_dict.values())
 total_limit = sum(c['limit'] * months_passed for c in CATEGORIES.values())
@@ -70,24 +69,6 @@ with st.form("add_transaction", clear_on_submit=True):
         requests.post(SHEET_URL, json={"category": cat, "amount": amt})
         st.rerun()
 
-# 2.5 ФОРМА ПЕРЕВОДОВ (Спрятана в панель, чтобы не занимать место)
-with st.expander("🔄 ПЕРЕВОД МЕЖДУ КОНВЕРТАМИ"):
-    with st.form("transfer_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            cat_from = st.selectbox("Откуда забираем?", list(CATEGORIES.keys()), index=5) # По умолчанию стоят "Доп. уроки"
-        with col2:
-            cat_to = st.selectbox("Куда добавляем?", list(CATEGORIES.keys()), index=0) # По умолчанию "Продукты"
-        
-        transfer_amt = st.number_input("Сумма перевода", min_value=1, step=1, value=None, placeholder="₪")
-        if st.form_submit_button("СДЕЛАТЬ ПЕРЕВОД") and transfer_amt:
-            if cat_from != cat_to:
-                # 1. Забираем деньги (записываем как трату)
-                requests.post(SHEET_URL, json={"category": cat_from, "amount": transfer_amt})
-                # 2. Добавляем деньги (записываем как возврат, с минусом)
-                requests.post(SHEET_URL, json={"category": cat_to, "amount": -transfer_amt})
-                st.rerun()
-
 # 3. СЕТКА КОНВЕРТОВ
 cols = st.columns(2)
 for i, (name, info) in enumerate(CATEGORIES.items()):
@@ -96,25 +77,15 @@ for i, (name, info) in enumerate(CATEGORIES.items()):
     pct = max(0, min(1, current_val / info['limit'])) if info['limit'] > 0 else 0
     
     if current_val < 0 or pct <= 0.10:
-        card_bg = "#FFEBEB"
-        icon_bg = "#FF5252"
-        text_color = "#FF5252"
-        bar_color = "#FF5252"
+        card_bg = "#FFEBEB"; icon_bg = "#FF5252"; text_color = "#FF5252"; bar_color = "#FF5252"
     elif pct <= 0.30:
-        card_bg = "#FFF8E1"
-        icon_bg = "#FFB300"
-        text_color = "#2D3142"
-        bar_color = "#FFB300"
+        card_bg = "#FFF8E1"; icon_bg = "#FFB300"; text_color = "#2D3142"; bar_color = "#FFB300"
     else:
-        card_bg = info['card_bg']
-        icon_bg = info['icon_bg']
-        text_color = "#2D3142"
-        bar_color = "#34D399"
+        card_bg = info['card_bg']; icon_bg = info['icon_bg']; text_color = "#2D3142"; bar_color = "#34D399"
     
     html_card = f'<div class="budget-card" style="background-color:{card_bg};"><div style="width:52px; height:52px; border-radius:50%; background:{icon_bg}; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">{info["icon"]}</div><div class="cat-name">{name}</div><div class="cat-amount" style="color:{text_color};">{int(current_val)}</div><div style="width:100%; text-align:right; font-size:12px; font-weight:700; color:#8E8E93; opacity:0.6; margin-bottom:4px; letter-spacing:0.5px;">{int(pct*100)}%</div><div class="progress-track"><div class="progress-fill" style="width:{int(pct*100)}%; background-color:{bar_color};"></div></div></div>'
-    
     with cols[i % 2]:
-        st.markdown(html_card, unsafe_allow_html=True)
+        st.markdown(html_card.replace('\n', ''), unsafe_allow_html=True)
 
 # 4. ИСТОРИЯ
 if history:
@@ -122,10 +93,24 @@ if history:
         for item in history:
             st.markdown(f'<div style="display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(0,0,0,0.05); font-size:14px;"><span>{item["date"]} <b>{item["category"]}</b></span><span style="color:#FF3B30; font-weight:700;">-{int(item["amount"])} ₪</span></div>', unsafe_allow_html=True)
 
-st.write("---")
-
-# 5. ФИКСИРОВАННЫЕ ВНИЗУ
+# 5. ФИКСИРОВАННЫЕ ПЛАТЕЖИ
 with st.expander("🔒 ОБЯЗАТЕЛЬНЫЕ ПЛАТЕЖИ (10 790 ₪)"):
     fixed = {"Машканта": 5700, "Кредиты": 2540, "Кружки": 1000, "Счета": 1200, "Здоровье": 350}
     for n, v in fixed.items():
         st.write(f"**{n}**: {v} ₪")
+
+# 6. ПЕРЕВОД (В САМОМ КОНЦЕ)
+with st.expander("🔄 ПЕРЕВОД МЕЖДУ КОНВЕРТАМИ"):
+    with st.form("transfer_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            cat_from = st.selectbox("Откуда забираем?", list(CATEGORIES.keys()), index=5)
+        with col2:
+            cat_to = st.selectbox("Куда добавляем?", list(CATEGORIES.keys()), index=0)
+        
+        transfer_amt = st.number_input("Сумма перевода", min_value=1, step=1, value=None, placeholder="₪")
+        if st.form_submit_button("СДЕЛАТЬ ПЕРЕВОД") and transfer_amt:
+            if cat_from != cat_to:
+                requests.post(SHEET_URL, json={"category": cat_from, "amount": transfer_amt})
+                requests.post(SHEET_URL, json={"category": cat_to, "amount": -transfer_amt})
+                st.rerun()
