@@ -3,9 +3,9 @@ import plotly.express as px
 import pandas as pd
 
 # --- НАСТРОЙКИ СТРАНИЦЫ ---
-st.set_page_config(page_title="Max-Бюджет PRO", page_icon="💎", layout="wide")
+st.set_page_config(page_title="Наш электронный кошелёк", page_icon="💳", layout="wide")
 
-# --- ПРЕМИУМ ДИЗАЙН (Скрываем лишнее, делаем шрифты красивыми) ---
+# --- ПРЕМИУМ ДИЗАЙН ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -32,15 +32,16 @@ if 'budget' not in st.session_state:
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# --- ВЕРХНЯЯ ПАНЕЛЬ (ДАШБОРД) ---
-st.title("💎 Бюджет Ирины: Управление капиталом")
+# --- ВЕРХНЯЯ ПАНЕЛЬ ---
+st.title("💳 Наш электронный кошелёк")
+st.caption("Совместный контроль расходов и поиск финансовых дыр.")
 
 # Считаем общие суммы
 total_limit = sum(data['limit'] for data in st.session_state.budget.values())
 total_spent = sum(data['spent'] for data in st.session_state.budget.values())
 total_left = total_limit - total_spent
 
-# Красивые метрики в ряд
+# Сводка (KPI)
 col_m1, col_m2, col_m3 = st.columns(3)
 col_m1.metric(label="Доступно на месяц (без фиксов)", value=f"{total_limit} ₪")
 col_m2.metric(label="Уже потрачено", value=f"{total_spent} ₪")
@@ -48,78 +49,85 @@ col_m3.metric(label="Остаток", value=f"{total_left} ₪", delta=f"{total_
 
 st.divider()
 
-# --- ЦЕНТРАЛЬНЫЙ БЛОК: ГРАФИК И СПИСОК ---
+# --- ЦЕНТРАЛЬНЫЙ БЛОК: ГРАФИК И УПРАВЛЕНИЕ ---
 col_chart, col_list = st.columns([1.2, 1])
 
 with col_chart:
-    st.subheader("📊 Аналитика расходов")
-    # Подготовка данных для "Бублика"
-    df_data = []
-    for cat, data in st.session_state.budget.items():
-        if data['spent'] > 0:
-            df_data.append({"Категория": cat, "Сумма": data['spent']})
+    st.subheader("📊 Распределение трат")
+    df_data = [{"Категория": cat, "Сумма": data['spent']} for cat, data in st.session_state.budget.items() if data['spent'] > 0]
     
-    # Если еще нет трат, показываем красивую заглушку
     if not df_data:
-        st.info("💡 Трат пока нет. Внеси первый расход, чтобы график ожил!")
-        # Пустой бублик для красоты
+        st.info("💡 Трат пока нет. График появится после первой записи.")
         df_data.append({"Категория": "Ждем первые траты...", "Сумма": 1})
-        fig = px.pie(df_data, values='Сумма', names='Категория', hole=0.7, color_discrete_sequence=['#e0e0e0'])
+        fig = px.pie(df_data, values='Сумма', names='Категория', hole=0.7, color_discrete_sequence=['#2b2b2b'])
     else:
-        # Настоящий интерактивный бублик
         df = pd.DataFrame(df_data)
-        fig = px.pie(df, values='Сумма', names='Категория', hole=0.6, 
-                     color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig = px.pie(df, values='Сумма', names='Категория', hole=0.6, color_discrete_sequence=px.colors.qualitative.Set2)
     
     fig.update_traces(textinfo='percent', hoverinfo='label+value', textfont_size=14)
-    fig.update_layout(showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5), 
-                      margin=dict(t=0, b=0, l=0, r=0), height=400)
-    
-    # Текст в центре бублика
+    fig.update_layout(showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5), margin=dict(t=0, b=0, l=0, r=0), height=400)
     fig.add_annotation(text=f"Траты:<br><b>{total_spent} ₪</b>", x=0.5, y=0.5, font_size=20, showarrow=False)
-    
     st.plotly_chart(fig, use_container_width=True)
 
 with col_list:
-    st.subheader("⚡ Быстрое внесение")
-    with st.container(border=True):
+    # ИСПОЛЬЗУЕМ st.form ЧТОБЫ ПОЛЯ САМИ ОЧИЩАЛИСЬ
+    with st.form("expense_form", clear_on_submit=True):
+        st.subheader("⚡ Внести расход")
         expense_cat = st.selectbox("Куда потратили?", list(st.session_state.budget.keys()))
         expense_amount = st.number_input("Сумма (₪)", min_value=0, step=10, format="%d")
-        if st.button("➕ Записать расход", use_container_width=True, type="primary"):
-            if expense_amount > 0:
-                st.session_state.budget[expense_cat]['spent'] += expense_amount
-                st.session_state.history.insert(0, f"✅ {expense_cat}: {expense_amount} ₪")
-                st.rerun()
+        
+        # Кнопка отправки формы
+        submitted_expense = st.form_submit_button("➕ Записать расход", type="primary", use_container_width=True)
+        
+        if submitted_expense and expense_amount > 0:
+            st.session_state.budget[expense_cat]['spent'] += expense_amount
+            # Красный текст для суммы
+            st.session_state.history.insert(0, f"➖ {expense_cat}: <span style='color:#ff4b4b; font-weight:bold;'>-{expense_amount} ₪</span>")
+            st.rerun()
 
+    # ФОРМА ПЕРЕВОДОВ (ТОЖЕ САМА ОЧИЩАЕТСЯ)
+    with st.form("transfer_form", clear_on_submit=True):
+        st.subheader("🔄 Перевод между конвертами")
+        col_t1, col_t2 = st.columns(2)
+        from_cat = col_t1.selectbox("Откуда забрать?", list(st.session_state.budget.keys()))
+        to_cat = col_t2.selectbox("Куда добавить?", list(st.session_state.budget.keys()))
+        transfer_amount = st.number_input("Сумма перевода (₪)", min_value=0, step=10, format="%d")
+        
+        submitted_transfer = st.form_submit_button("Выполнить перевод", use_container_width=True)
+        
+        if submitted_transfer and transfer_amount > 0 and from_cat != to_cat:
+            st.session_state.budget[from_cat]['limit'] -= transfer_amount
+            st.session_state.budget[to_cat]['limit'] += transfer_amount
+            st.session_state.history.insert(0, f"🔄 Перевод: из {from_cat} в {to_cat} <span style='color:#00cc66; font-weight:bold;'>+{transfer_amount} ₪</span>")
+            st.rerun()
+
+st.divider()
+
+# --- ПОДВАЛ (Конверты, История и Фиксы) ---
+col_env, col_hist_fix = st.columns([1.2, 1])
+
+with col_env:
     st.subheader("📂 Состояние конвертов")
-    # Компактный список папок со светофором
     for cat, data in st.session_state.budget.items():
         limit = data['limit']
         spent = data['spent']
         percent = int((spent / limit) * 100) if limit > 0 else 0
         
-        # Индикатор (🟢 🟡 🔴)
-        emoji = "🟢" if percent < 50 else "🟡" if percent < 85 else "🔴"
-        
-        st.markdown(f"**{emoji} {cat}**")
+        # Строгий стиль без дешевых эмодзи, проценты вернулись
+        st.markdown(f"**{cat}**")
         st.progress(min(percent / 100, 1.0))
-        st.caption(f"Потрачено: {spent} из {limit} ₪")
+        st.caption(f"Потрачено: **{spent} ₪** из {limit} ₪ ({percent}%)")
 
-st.divider()
-
-# --- ПОДВАЛ (История и Фиксы) ---
-col_hist, col_fix = st.columns(2)
-with col_hist:
-    with st.expander("📝 Последние операции (История)"):
+with col_hist_fix:
+    with st.expander("📝 История операций", expanded=True):
         if st.session_state.history:
             for item in st.session_state.history[:10]:
-                st.write(item)
+                st.markdown(item, unsafe_allow_html=True)
         else:
-            st.write("История чиста.")
+            st.write("Пока пусто.")
 
-with col_fix:
     with st.expander("🔒 Обязательные платежи (База)"):
-        st.write("Твои заблокированные деньги на месяц:")
+        st.write("Твои фиксированные счета на месяц:")
         st.write("🏠 **Машканта:** 5 700 ₪")
         st.write("💳 **Кредиты:** 2 540 ₪")
         st.write("⚡ **Счета:** 916 ₪")
