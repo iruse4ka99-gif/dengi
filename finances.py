@@ -8,7 +8,7 @@ from datetime import date
 st.set_page_config(page_title="My Wallet", layout="centered")
 st.markdown('<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">', unsafe_allow_html=True)
 
-# Apple-style pastel palette
+# Apple-style пастельная палитра
 colors = {
     "Продукты и Хозтовары": "#FF9F89", "Доп. уроки": "#89E3FF", "Лео": "#FF89F6",
     "Здоровье и Аптека": "#89FF9F", "Машина": "#FFEC89", "Арина": "#FF89B2",
@@ -24,7 +24,7 @@ st.markdown(f"""
     /* Прозрачные метрики сверху */
     .top-metrics {{
         display: flex; justify-content: space-around; margin-bottom: 25px;
-        background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(15px);
         border-radius: 20px; padding: 15px; border: 1px solid rgba(255, 255, 255, 0.4);
     }}
     .m-item {{ text-align: center; }}
@@ -46,13 +46,14 @@ st.markdown(f"""
     .p-bar-bg {{ width: 100%; height: 7px; background: rgba(0,0,0,0.06); border-radius: 10px; margin: 15px 0; }}
     .p-bar-fill {{ height: 100%; border-radius: 10px; transition: width 0.8s ease-in-out; }}
 
-    /* ПРИЖИМАЕМ КНОПКИ К НИЗУ (Меню) */
-    div[data-testid="stHorizontalBlock"]:last-child {{
+    /* ФИКСАЦИЯ МЕНЮ ВНИЗУ */
+    .stTabs [data-baseweb="tab-list"] {{
         position: fixed; bottom: 0; left: 0; right: 0;
         background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(20px);
-        padding: 15px 10px 30px 10px; z-index: 1000;
-        border-top: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 10px 0 30px 0; z-index: 1000;
+        justify-content: space-around; border-top: 1px solid rgba(255, 255, 255, 0.3);
     }}
+    .stTabs [data-baseweb="tab"] {{ border: none !important; background: transparent !important; }}
     .main-content {{ padding-bottom: 110px; }}
     </style>
 """, unsafe_allow_html=True)
@@ -70,26 +71,26 @@ envelopes = {
     "Разное": {"limit": 100, "icon": "more_horiz"}
 }
 
-# Инициализируем df заранее, чтобы не было ошибок NameError
-df = pd.DataFrame() 
+# Инициализируем df, чтобы избежать NameError
+df = pd.DataFrame()
 
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
     df = conn.read(worksheet="Data", ttl="0m")
     gsheet_spent = dict(zip(df['Category'], df['Spent']))
     gsheet_carry = dict(zip(df['Category'], df['Carryover']))
-except Exception as e:
+except Exception:
     gsheet_spent = {k: 0 for k in envelopes}
     gsheet_carry = {k: 0 for k in envelopes}
 
 if 'spent' not in st.session_state: st.session_state.spent = gsheet_spent
 if 'carry' not in st.session_state: st.session_state.carry = gsheet_carry
-if 'page' not in st.session_state: st.session_state.page = "wallet"
 
-# --- 4. NAVIGATION LOGIC ---
+# --- 4. NAVIGATION ---
 st.markdown('<div class="main-content">', unsafe_allow_html=True)
+tab_wallet, tab_move, tab_history = st.tabs(["💎 Кошелёк", "🔁 Перевод", "📜 История"])
 
-if st.session_state.page == "wallet":
+with tab_wallet:
     total_l = sum(e['limit'] for e in envelopes.values()) + sum(st.session_state.carry.values())
     total_s = sum(st.session_state.spent.values())
     total_r = total_l - total_s
@@ -104,12 +105,16 @@ if st.session_state.page == "wallet":
 
     c_f, c_p = st.columns([1, 1.2])
     with c_f:
-        with st.form("add", clear_on_submit=True):
+        with st.form("add_exp", clear_on_submit=True):
             cat_choice = st.selectbox("Куда?", list(envelopes.keys()), label_visibility="collapsed")
             amt = st.number_input("Сколько ₪", min_value=0, step=10)
             if st.form_submit_button("ЗАПИСАТЬ", use_container_width=True):
                 st.session_state.spent[cat_choice] += amt
-                new_df = pd.DataFrame([{'Category': k, 'Spent': float(st.session_state.spent[k]), 'Carryover': float(st.session_state.carry[k])} for k in envelopes])
+                # Фикс ValueError: гарантируем 3 колонки
+                new_df = pd.DataFrame([
+                    {'Category': k, 'Spent': float(st.session_state.spent[k]), 'Carryover': float(st.session_state.carry[k])} 
+                    for k in envelopes
+                ])
                 conn.update(worksheet="Data", data=new_df)
                 st.rerun()
     with c_p:
@@ -134,9 +139,9 @@ if st.session_state.page == "wallet":
         st.markdown(f"""
         <div class="glass-card">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div style="display:flex; align-items:center; gap:15px;">
+                <div style="display:flex; align-items:center; gap:12px;">
                     <span class="material-symbols-outlined" style="color:{clr}; font-size:40px;">{info['icon']}</span>
-                    <span style="font-size:19px; font-weight:700; color:#1d1d1f;">{name}</span>
+                    <span style="font-size:18px; font-weight:700; color:#1d1d1f;">{name}</span>
                 </div>
                 <div>
                     <div class="rem-label">Осталось</div>
@@ -151,21 +156,19 @@ if st.session_state.page == "wallet":
         </div>
         """, unsafe_allow_html=True)
 
-elif st.session_state.page == "transfer":
+with tab_move:
     st.subheader("🔁 Перевод")
     with st.form("transfer"):
         f = st.selectbox("Откуда?", list(envelopes.keys()))
         t = st.selectbox("Куда?", list(envelopes.keys()))
         v = st.number_input("Сумма ₪", min_value=1)
-        if st.form_submit_button("ВЫПОЛНИТЬ"):
-            st.session_state.carry[f] -= v
-            st.session_state.carry[t] += v
+        if st.form_submit_button("ВЫПОЛНИТЬ ПЕРЕВОД"):
+            st.session_state.carry[f] -= v; st.session_state.carry[t] += v
             u_df = pd.DataFrame([{'Category': k, 'Spent': float(st.session_state.spent[k]), 'Carryover': float(st.session_state.carry[k])} for k in envelopes])
             conn.update(worksheet="Data", data=u_df)
-            st.success("Готово!")
-            st.rerun()
+            st.success("Перевод выполнен!"); st.rerun()
 
-elif st.session_state.page == "history":
+with tab_history:
     st.subheader("📜 История")
     if st.button("🏁 ЗАКРЫТЬ МЕСЯЦ"):
         new_c = {n: (info['limit'] + st.session_state.carry[n]) - st.session_state.spent[n] for n, info in envelopes.items()}
@@ -176,12 +179,3 @@ elif st.session_state.page == "history":
     if not df.empty: st.dataframe(df, use_container_width=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-# --- 5. BOTTOM NAVIGATION BAR (В самом низу) ---
-c1, c2, c3 = st.columns(3)
-with c1:
-    if st.button("💎 Кошелёк", use_container_width=True): st.session_state.page = "wallet"; st.rerun()
-with c2:
-    if st.button("🔁 Перевод", use_container_width=True): st.session_state.page = "transfer"; st.rerun()
-with c3:
-    if st.button("📜 История", use_container_width=True): st.session_state.page = "history"; st.rerun()
