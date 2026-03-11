@@ -1,11 +1,12 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
+import datetime
 
 # --- НАСТРОЙКИ СТРАНИЦЫ ---
-st.set_page_config(page_title="Наш электронный кошелёк", page_icon="💳", layout="wide")
+st.set_page_config(page_title="Наш электронный кошелёк", layout="wide")
 
-# --- ПРЕМИУМ ДИЗАЙН (ЖИДКОЕ СТЕКЛО) ---
+# --- ПРЕМИУМ ДИЗАЙН (ЖИДКОЕ СТЕКЛО + APPLE MINIMALISM) ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -27,8 +28,8 @@ st.markdown("""
     
     /* Верхние показатели */
     .stat-box { text-align: center; width: 33%; display: inline-block; }
-    .stat-title { font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-    .stat-value { font-size: 24px; font-weight: bold; color: #222; }
+    .stat-title { font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; font-family: -apple-system, sans-serif; }
+    .stat-value { font-size: 24px; font-weight: bold; color: #222; font-family: -apple-system, sans-serif; }
     .stat-value.red { color: #d9534f; }
     .stat-value.green { color: #5cb85c; }
     </style>
@@ -37,20 +38,18 @@ st.markdown("""
 # --- ИНИЦИАЛИЗАЦИЯ ДАННЫХ (Твоя логика - не трогал!) ---
 if 'budget' not in st.session_state:
     st.session_state.budget = {
-        "🛒 Продукты и Хозтовары": {"limit": 4000, "spent": 0},
-        "📚 Доп. уроки": {"limit": 2254, "spent": 0},
-        "🏋️ Спорт и Секции": {"limit": 1000, "spent": 0},
-        "👶 Лео (Малыш)": {"limit": 1000, "spent": 0},
-        "🏥 Здоровье и Аптека": {"limit": 500, "spent": 0},
-        "🚗 Машина (Бензин)": {"limit": 350, "spent": 0},
-        "👧 Арина (Личное)": {"limit": 100, "spent": 0},
-        "👦 Натан (Личное)": {"limit": 100, "spent": 0},
-        "🎮 Досуг и мелочи": {"limit": 40, "spent": 0},
+        "Продукты и Хозтовары": {"limit": 4000, "spent": 0},
+        "Доп. уроки": {"limit": 2254, "spent": 0},
+        "Спорт и Секции": {"limit": 1000, "spent": 0},
+        "Лео (Малыш)": {"limit": 1000, "spent": 0},
+        "Здоровье и Аптека": {"limit": 500, "spent": 0},
+        "Машина (Бензин)": {"limit": 350, "spent": 0},
+        "Арина (Личное)": {"limit": 100, "spent": 0},
+        "Натан (Личное)": {"limit": 100, "spent": 0},
+        "Досуг и мелочи": {"limit": 40, "spent": 0},
     }
 if 'history' not in st.session_state:
     st.session_state.history = []
-
-st.title("💎 Наш электронный кошелёк")
 
 # Считаем общие суммы
 total_limit = sum(data['limit'] for data in st.session_state.budget.values())
@@ -66,18 +65,20 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ДОБАВЛЕН КАЛЕНДАРЬ
+st.date_input("Календарь", datetime.date.today())
+
 # --- 2. ЦЕНТРАЛЬНЫЙ БЛОК: КРУГ ---
-st.subheader("📊 Распределение трат")
 st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
 df_data = [{"Категория": cat, "Сумма": data['spent']} for cat, data in st.session_state.budget.items() if data['spent'] > 0]
     
 if not df_data:
-    st.info("💡 Трат пока нет. График появится после первой записи.")
+    st.info("Трат пока нет. График появится после первой записи.")
     df_data.append({"Категория": "Ждем первые траты...", "Сумма": 1})
-    fig = px.pie(df_data, values='Сумма', names='Категория', hole=0.7, color_discrete_sequence=['#e0e0e0'])
+    df = pd.DataFrame(df_data)
+    fig = px.pie(df, values='Сумма', names='Категория', hole=0.7, color_discrete_sequence=['#e0e0e0'])
 else:
     df = pd.DataFrame(df_data)
-    # Используем красивые пастельные цвета для графика
     fig = px.pie(df, values='Сумма', names='Категория', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
     
 fig.update_traces(textinfo='percent', hoverinfo='label+value', textfont_size=14)
@@ -87,17 +88,16 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 3. ВНЕСЕНИЕ РАСХОДА (Открытая форма) ---
-st.subheader("⚡ Внести расход")
+st.subheader("Внести расход")
 st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
 with st.form("expense_form", clear_on_submit=True):
     col1, col2 = st.columns([2, 1])
     with col1:
         expense_cat = st.selectbox("Куда потратили?", list(st.session_state.budget.keys()))
     with col2:
-        # Убрал шаг 10, теперь step=1 (только целые числа!)
         expense_amount = st.number_input("Сумма (₪)", min_value=0, step=1, format="%d")
         
-    submitted_expense = st.form_submit_button("➕ ЗАПИСАТЬ РАСХОД", type="primary", use_container_width=True)
+    submitted_expense = st.form_submit_button("ЗАПИСАТЬ РАСХОД", type="primary", use_container_width=True)
         
     if submitted_expense and expense_amount > 0:
         st.session_state.budget[expense_cat]['spent'] += expense_amount
@@ -106,7 +106,7 @@ with st.form("expense_form", clear_on_submit=True):
 st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 4. КОНВЕРТЫ С ПРОГРЕССОМ ---
-st.subheader("📂 Состояние конвертов")
+st.subheader("Состояние конвертов")
 st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
 for cat, data in st.session_state.budget.items():
     limit = data['limit']
@@ -125,14 +125,14 @@ st.divider()
 col_hist, col_fix = st.columns(2)
 
 with col_hist:
-    with st.expander("📝 История операций", expanded=True):
+    with st.expander("История операций", expanded=True):
         if st.session_state.history:
             for item in st.session_state.history[:10]:
                 st.markdown(item, unsafe_allow_html=True)
         else:
             st.write("Пока пусто.")
             
-    with st.expander("🔄 Перевод между конвертами"):
+    with st.expander("Перевод между конвертами"):
         with st.form("transfer_form", clear_on_submit=True):
             from_cat = st.selectbox("Откуда забрать?", list(st.session_state.budget.keys()), key="from")
             to_cat = st.selectbox("Куда добавить?", list(st.session_state.budget.keys()), key="to")
@@ -143,19 +143,19 @@ with col_hist:
             if submitted_transfer and transfer_amount > 0 and from_cat != to_cat:
                 st.session_state.budget[from_cat]['limit'] -= transfer_amount
                 st.session_state.budget[to_cat]['limit'] += transfer_amount
-                st.session_state.history.insert(0, f"🔄 Перевод: из {from_cat} в {to_cat} <span style='color:#00cc66; font-weight:bold;'>+{transfer_amount} ₪</span>")
+                st.session_state.history.insert(0, f"Перевод: из {from_cat} в {to_cat} <span style='color:#00cc66; font-weight:bold;'>+{transfer_amount} ₪</span>")
                 st.rerun()
 
 with col_fix:
-    with st.expander("🔒 Обязательные платежи (База)", expanded=True):
+    with st.expander("Обязательные платежи (База)", expanded=True):
         st.write("Твои фиксированные счета на месяц (уже учтены):")
-        st.write("🏠 **Машканта:** 5 700 ₪")
-        st.write("💳 **Кредиты:** 2 540 ₪")
-        st.write("🏛 **Арнона:** 1 500 ₪")
-        st.write("⚡ **Электричество:** 600 ₪")
-        st.write("📱 **Телефон + интернет:** 600 ₪")
-        st.write("🏥 **Больничная касса:** 350 ₪")
-        st.write("💧 **Вода:** 200 ₪")
-        st.write("🎨 **Кружки детей:** 1 000 ₪")
+        st.write("**Машканта:** 5 700 ₪")
+        st.write("**Кредиты:** 2 540 ₪")
+        st.write("**Арнона:** 1 700 ₪")
+        st.write("**Электричество:** 600 ₪")
+        st.write("**Телефон + интернет:** 600 ₪")
+        st.write("**Больничная касса:** 350 ₪")
+        st.write("**Вода:** 200 ₪")
+        st.write("**Кружки детей:** 1 000 ₪")
         st.write("---")
-        st.write("**ИТОГО БАЗА:** 12 490 ₪")
+        st.write("**ИТОГО БАЗА:** 12 690 ₪")
